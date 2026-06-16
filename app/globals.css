@@ -152,3 +152,31 @@ body {
 /* Safe area utilities */
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .pt-safe { padding-top:    env(safe-area-inset-top,    0px); }
+/* ═══════════════════════════════════════════════════════════════
+   SYSTEM DARK MODE — next-themes class lagane se pehle bhi kaam kare
+   ═══════════════════════════════════════════════════════════════ */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+    --bg-base:        #08090e;
+    --bg-surface:     #111215;
+    --bg-surface-2:   #17191f;
+    --bg-elevated:    #1c1f27;
+    --border-color:   rgba(255,255,255,0.07);
+    --border-strong:  rgba(255,255,255,0.13);
+    --text-primary:   #f0f2f5;
+    --text-secondary: #8b95a3;
+    --text-muted:     #4a5260;
+    --brand:          #3b82f6;
+    --brand-light:    rgba(59,130,246,0.10);
+    --brand-border:   rgba(59,130,246,0.25);
+    --success:        #34d399;
+    --success-light:  rgba(52,211,153,0.10);
+    --warning:        #fbbf24;
+    --warning-light:  rgba(251,191,36,0.10);
+    --error:          #f87171;
+    --error-light:    rgba(248,113,113,0.10);
+    --shadow-card:      0 2px 8px rgba(0,0,0,0.40);
+    --shadow-card-hover: 0 8px 24px rgba(0,0,0,0.55);
+  }
+}

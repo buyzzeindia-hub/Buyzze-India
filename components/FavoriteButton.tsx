@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { useUser } from "@clerk/nextjs"; // ✅ Clerk
+import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 
@@ -13,28 +13,33 @@ export default function FavoriteButton({
 }) {
   const [loading, setLoading] = useState(false);
   const [isFav, setIsFav] = useState(false);
+  const [checked, setChecked] = useState(false); // ✅ track initial load
   const [showToast, setShowToast] = useState<"added" | "removed" | null>(null);
   const router = useRouter();
-  const { user, isLoaded } = useUser(); // ✅ Clerk
+  const { user, isLoaded } = useUser();
 
-  // ✅ Favorite status check on load
+  // ✅ Check favorite status only once on mount
   useEffect(() => {
-    if (!isLoaded || !user) return;
+    if (!isLoaded || !user || checked) return;
 
     const load = async () => {
       try {
         const res = await fetch("/api/favorites");
         if (!res.ok) return;
         const data = await res.json();
-        const exists = data.favorites?.some((f: any) => f.product_id === productId);
+        const exists = data.favorites?.some(
+          (f: any) => Number(f.product_id) === Number(productId)
+        );
         setIsFav(!!exists);
       } catch (err) {
         console.error("Favorite check error:", err);
+      } finally {
+        setChecked(true);
       }
     };
 
     load();
-  }, [isLoaded, user, productId]);
+  }, [isLoaded, user, productId, checked]);
 
   const triggerToast = useCallback((type: "added" | "removed") => {
     setShowToast(type);
@@ -50,22 +55,33 @@ export default function FavoriteButton({
       return;
     }
 
+    if (loading) return;
+
+    // ✅ Optimistic update
+    const newState = !isFav;
+    setIsFav(newState);
     setLoading(true);
+
     try {
-      // ✅ API route se toggle — service_role use karega
       const res = await fetch("/api/favorites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_id: productId }),
+        body: JSON.stringify({ product_id: Number(productId) }),
       });
 
       const data = await res.json();
+
       if (data.success) {
         const added = data.action === "added";
-        setIsFav(added);
+        setIsFav(added); // ✅ confirm from server
         triggerToast(added ? "added" : "removed");
+      } else {
+        // ✅ Revert on failure
+        setIsFav(!newState);
+        console.error("Toggle failed:", data.error);
       }
     } catch (err) {
+      setIsFav(!newState); // ✅ Revert on error
       console.error("Favorite toggle error:", err);
     } finally {
       setLoading(false);
@@ -114,7 +130,6 @@ export default function FavoriteButton({
         )}
       </button>
 
-      {/* Toast — same UI */}
       {showToast && (
         <div className={`
           fixed bottom-24 left-1/2 -translate-x-1/2 z-[200]

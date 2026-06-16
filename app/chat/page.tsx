@@ -1,26 +1,44 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs"; // ✅ Clerk
+import { useBuyzzeAuth } from "@/hooks/useBuyzzeAuth"; // ✅ Connected to Unified Auth Hook
 import { ref, onValue } from "firebase/database";
 import { database } from "@/lib/firebase";
 
 export default function ChatInboxPage() {
   const router = useRouter();
-  const { user, isLoaded } = useUser(); // ✅ Clerk
-  const userId = user?.id ?? null;
-
+  const { user, isLoaded } = useBuyzzeAuth(); // ✅ Unified auth state mapping
+  
+  const [userId, setUserId] = useState<string | null>(null);
   const [buyingChats, setBuyingChats] = useState<Record<string, any>>({});
   const [sellingChats, setSellingChats] = useState<Record<string, any>>({});
   const [activeTab, setActiveTab] = useState<"selling" | "buying">("selling");
   const [loading, setLoading] = useState(true);
 
-  // ✅ Clerk load hone ke baad redirect check
+  // ✅ Client-side Identity Extraction (Sync with both Clerk and Fast Auth)
+  useEffect(() => {
+    if (user?.id) {
+      setUserId(user.id);
+    } else if (typeof window !== "undefined") {
+      const isLogged = localStorage.getItem("buyzze_logged_in") === "true";
+      if (isLogged) {
+        setUserId("oauth_buyzze_active_user"); // Fallback key match for Google/Truecaller
+      }
+    }
+  }, [user]);
+
+  // ✅ Auth Loop Guard Fix
   useEffect(() => {
     if (!isLoaded) return;
-    if (!userId) router.push("/login");
-  }, [isLoaded, userId, router]);
+    
+    const isLoggedLocal = typeof window !== "undefined" && localStorage.getItem("buyzze_logged_in") === "true";
+    
+    if (!user && !isLoggedLocal) {
+      router.push("/login");
+    }
+  }, [isLoaded, user, router]);
 
+  // ✅ Complete Firebase Chat Fetching Engine
   useEffect(() => {
     if (!userId) return;
 
@@ -85,8 +103,9 @@ export default function ChatInboxPage() {
       : d.toLocaleDateString([], { month: "short", day: "numeric" });
   };
 
+  // Loader state handling
   if (!isLoaded || loading) return (
-    <div className="p-12 text-center font-black dark:text-white uppercase tracking-tighter animate-pulse">
+    <div className="min-h-screen flex items-center justify-center p-12 text-center font-black dark:text-white uppercase tracking-widest animate-pulse bg-[#F8FAFC] dark:bg-slate-950">
       Loading Inbox...
     </div>
   );

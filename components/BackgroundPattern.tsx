@@ -1,6 +1,20 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 export default function BackgroundPattern() {
+  const [mounted, setMounted] = useState(false);
+
+  // Jab component browser (client) par mount ho jayega, tabhi state true hogi
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Server-side rendering ke time pe kuch return nahi karenge, isse hydration error bypass ho jayega
+  if (!mounted) {
+    return null;
+  }
+
   return (
     <>
       {/* Light mode */}

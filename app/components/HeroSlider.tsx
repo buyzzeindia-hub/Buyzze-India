@@ -31,7 +31,7 @@ const SLIDES = [
   {
     id: 2,
     brand: "Samsung",
-    logo: "/logos/samsung.svg",
+    logo: "/samsung.svg",
     badge: "GALAXY SERIES",
     title: "Galaxy Innovation",
     highlight: "Display That Inspires.",

@@ -87,25 +87,39 @@ function RecentCard({ p }: { p: any }) {
   return (
     <Link
       href={`/products/${p.id}`}
-      className="flex-shrink-0 w-[152px] rounded-2xl overflow-hidden
-        border border-gray-200 dark:border-white/[0.07]
-        bg-white dark:bg-[#111215]
-        hover:border-blue-300 dark:hover:border-blue-500/40
-        hover:-translate-y-1 hover:shadow-lg hover:shadow-black/10 dark:hover:shadow-black/50
-        transition-all duration-300 relative group"
+      className="flex-shrink-0 rounded-2xl overflow-hidden relative group transition-all duration-300 hover:-translate-y-1"
+      style={{
+        width: 152,
+        minHeight: 230,
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--rc-card)",
+        border: "var(--rc-border)",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+      }}
     >
       <FavoriteButton productId={p.id} size="sm" />
-      <div className="h-[112px] bg-gray-50 dark:bg-white/[0.03] flex items-center justify-center overflow-hidden">
+      {/* Image — fixed height */}
+      <div className="flex items-center justify-center overflow-hidden flex-shrink-0"
+        style={{ height: 112, background: "var(--rc-img)" }}>
         <Image src={p.images?.[0] || "/placeholder.png"} alt={p.title} width={100} height={100}
           className="object-contain p-2 group-hover:scale-110 transition-transform duration-500" />
       </div>
-      <div className="p-3">
-        <p className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.15em] truncate mb-1">{p.brand}</p>
-        <h4 className="text-[11.5px] font-semibold text-gray-800 dark:text-white/90 line-clamp-2 leading-snug mb-2">{p.title}</h4>
-        <p className="text-[15px] font-black text-gray-900 dark:text-white">₹{p.price?.toLocaleString("en-IN")}</p>
+      {/* Text — fills rest */}
+      <div className="p-3 flex flex-col flex-1">
+        <p className="text-[9px] font-black uppercase tracking-[0.15em] truncate mb-1"
+          style={{ color: "var(--rc-brand)" }}>{p.brand}</p>
+        <h4 className="text-[11.5px] font-semibold line-clamp-2 leading-snug mb-2 flex-1"
+          style={{ color: "var(--rc-title)" }}>{p.title}</h4>
+        <p className="text-[15px] font-black"
+          style={{ color: "var(--rc-price)" }}>
+          ₹{p.price?.toLocaleString("en-IN")}
+        </p>
         <div className="flex items-center gap-1 mt-1.5">
-          <MapPin size={8} className="text-gray-400 dark:text-white/30" />
-          <span className="text-[9px] text-gray-400 dark:text-white/30 truncate">{p.city} · {date}</span>
+          <MapPin size={8} style={{ color: "var(--rc-meta)" }} />
+          <span className="text-[9px] truncate" style={{ color: "var(--rc-meta)" }}>
+            {p.city} · {date}
+          </span>
         </div>
       </div>
     </Link>
@@ -121,37 +135,177 @@ function RecentlyAddedSection({ products, loading }: { products: any[]; loading:
 
   return (
     <section className="max-w-7xl mx-auto px-4 mt-6">
-      <div className="rounded-2xl border border-gray-200 dark:border-white/[0.06] bg-white dark:bg-[#0e0f12] px-5 pt-5 pb-5 shadow-sm dark:shadow-none">
-        <div className="flex items-center justify-between mb-5">
+      <style>{`
+        :root {
+          --rc-card: #ffffff;
+          --rc-border: 1px solid rgba(0,0,0,0.07);
+          --rc-img: #f3f4f6;
+          --rc-brand: #2563eb;
+          --rc-title: #1f2937;
+          --rc-price: #111827;
+          --rc-meta: #9ca3af;
+        }
+        .dark {
+          --rc-card: #1e2a45;
+          --rc-border: 1px solid rgba(255,255,255,0.08);
+          --rc-img: #162032;
+          --rc-brand: #60a5fa;
+          --rc-title: #f1f5f9;
+          --rc-price: #ffffff;
+          --rc-meta: #64748b;
+        }
+        /* Recently added section dark bg */
+        .recently-section-inner {
+          background: linear-gradient(135deg, #fce4ec 0%, #f3e5f5 45%, #e8eaf6 100%);
+          border: 1px solid rgba(219,39,119,0.1);
+          box-shadow: 0 8px 32px rgba(233,30,99,0.07);
+        }
+        .dark .recently-section-inner {
+          background: linear-gradient(135deg, #1a1025 0%, #0f172a 50%, #161c2e 100%);
+          border: 1px solid rgba(139,92,246,0.12);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        /* Header text dark */
+        .dark .recently-title { color: #f1f5f9 !important; }
+        .dark .recently-count { color: rgba(255,255,255,0.35) !important; }
+        .dark .recently-viewall { color: #a78bfa !important; }
+        /* Badge dark */
+        .dark .recently-badge {
+          background: linear-gradient(135deg,#7c3aed,#4f46e5) !important;
+        }
+        /* Buttons dark */
+        .dark .recently-btn {
+          background: rgba(255,255,255,0.1) !important;
+          border: 1px solid rgba(255,255,255,0.12) !important;
+        }
+        /* Skeleton dark */
+        .dark .recently-skeleton {
+          background: rgba(255,255,255,0.06) !important;
+          border: 1px solid rgba(255,255,255,0.08) !important;
+        }
+      `}</style>
+      <div
+        className="recently-section-inner rounded-2xl px-5 pt-5 pb-5 overflow-hidden"
+        style={{ position: "relative" }}
+      >
+        {/* Noise texture */}
+        <div style={{
+          position: "absolute", inset: 0, pointerEvents: "none", opacity: 0,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E")`,
+        }} />
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5" style={{ position: "relative", zIndex: 1 }}>
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-600 dark:text-blue-400 text-[10px] font-bold px-2.5 py-1 rounded-full">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full"
+              className="recently-badge" style={{ background: "linear-gradient(135deg,#ec4899,#a855f7)", color: "#fff" }}>
               <Clock size={9} /><span>Last 7 Days</span>
             </div>
-            <h2 className="text-[15px] font-bold text-gray-900 dark:text-white">Recently Added</h2>
-            {!loading && <span className="text-[11px] text-gray-400 dark:text-white/25">({recent.length})</span>}
+            <h2 className="recently-title text-[15px] font-bold" style={{ color: "#1f2937" }}>Recently Added</h2>
+            {!loading && <span className="recently-count text-[11px]" style={{ color: "rgba(0,0,0,0.35)" }}>({recent.length})</span>}
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/recently-added" className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:opacity-80 flex items-center gap-0.5 transition-opacity">
+            <Link href="/recently-added"
+              className="text-[11px] font-bold hover:opacity-80 flex items-center gap-0.5 transition-opacity"
+              className="recently-viewall" style={{ color: "#be185d" }}>
               View all <ArrowRight size={11} />
             </Link>
             <div className="flex gap-1">
-              <button onClick={() => scroll("l")} className="w-7 h-7 rounded-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-white/10 transition-colors">
-                <ChevronLeft size={12} className="text-gray-500 dark:text-white/50" />
+              <button onClick={() => scroll("l")}
+                className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+                className="recently-btn" style={{ background: "rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.09)" }}>
+                <ChevronLeft size={12} style={{ color: "rgba(0,0,0,0.5)" }} />
               </button>
-              <button onClick={() => scroll("r")} className="w-7 h-7 rounded-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-white/10 transition-colors">
-                <ChevronRight size={12} className="text-gray-500 dark:text-white/50" />
+              <button onClick={() => scroll("r")}
+                className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+                className="recently-btn" style={{ background: "rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.09)" }}>
+                <ChevronRight size={12} style={{ color: "rgba(0,0,0,0.5)" }} />
               </button>
             </div>
           </div>
         </div>
-        <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide" style={NO_SCROLL}>
+
+        {/* Cards row */}
+        <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide"
+          style={{ ...NO_SCROLL, position: "relative", zIndex: 1 }}>
           {loading
-            ? [...Array(6)].map((_, i) => <div key={i} className="flex-shrink-0 w-[152px] h-[230px] bg-gray-100 dark:bg-white/5 rounded-2xl animate-pulse" />)
+            ? [...Array(6)].map((_, i) => (
+                <div key={i} className="flex-shrink-0 w-[152px] h-[230px] rounded-2xl animate-pulse"
+                  className="recently-skeleton" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.05)" }} />
+              ))
             : recent.length === 0
-            ? <div className="w-full py-12 text-center"><p className="text-gray-400 dark:text-white/25 text-[13px]">No products added in last 7 days</p></div>
+            ? <div className="w-full py-12 text-center">
+                <p className="text-[13px]" style={{ color: "rgba(0,0,0,0.4)" }}>No products added in last 7 days</p>
+              </div>
             : recent.map(p => <RecentCard key={p.id} p={p} />)
           }
         </div>
+      </div>
+    </section>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// SHOP BY CONDITION — Cashify style, mobile only
+// ═══════════════════════════════════════════════════════════════
+const CONDITION_CARDS = [
+  { value: "used-superb", label: "Used — Superb", badge: "Best Quality", image: "/condition-superb.png", bg: "#f0fdf4", darkBg: "#0a1f10" },
+  { value: "used-good",   label: "Used — Good",   badge: "Good Value",   image: "/condition-good.png",   bg: "#eff6ff", darkBg: "#070f1a" },
+  { value: "used-fair",   label: "Used — Fair",   badge: "Best Price",   image: "/condition-fair.png",   bg: "#fff7ed", darkBg: "#1a0f05" },
+];
+
+function ConditionSection() {
+  const isDark = useIsDark();
+  return (
+    <section className="max-w-7xl mx-auto px-4 mt-5">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-[15px] font-bold text-gray-900 dark:text-white">Shop by Condition</h2>
+        <Link href="/condition" className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-0.5 hover:opacity-80 transition-opacity">
+          View all <ChevronRight size={11} />
+        </Link>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {CONDITION_CARDS.map((c) => (
+          <Link key={c.value} href={`/search?q=&condition=${c.value}`}
+            className="flex items-stretch rounded-2xl overflow-hidden active:scale-[0.99] transition-transform"
+            style={{
+              background: isDark ? c.darkBg : c.bg,
+              border: `1.5px solid ${isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)"}`,
+              boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
+              textDecoration: "none", minHeight: 130,
+            }}>
+            {/* Left text */}
+            <div style={{ flex: 1, padding: "20px 0 20px 20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div>
+                <span style={{
+                  fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
+                  color: isDark ? "rgba(255,255,255,0.4)" : "#9ca3af",
+                  background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)",
+                  borderRadius: 6, padding: "2px 7px", display: "inline-block", marginBottom: 8,
+                }}>{c.badge}</span>
+                <p style={{ fontSize: 12, fontWeight: 500, color: isDark ? "rgba(255,255,255,0.4)" : "#6b7280", margin: "0 0 3px" }}>Best Selling</p>
+                <p style={{ fontSize: 20, fontWeight: 900, lineHeight: 1.15, color: isDark ? "#f8fafc" : "#111827", margin: 0, letterSpacing: "-0.4px" }}>{c.label}</p>
+              </div>
+              <div style={{
+                width: 38, height: 38, borderRadius: "50%", marginTop: 14,
+                background: isDark ? "rgba(255,255,255,0.12)" : "#111827",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </div>
+            </div>
+            {/* Right: image */}
+            <div style={{ width: "48%", flexShrink: 0, position: "relative", overflow: "hidden" }}>
+              <Image
+                src={c.image}
+                alt={c.label}
+                fill
+                style={{ objectFit: "contain", objectPosition: "center bottom" }}
+              />
+            </div>
+          </Link>
+        ))}
       </div>
     </section>
   );
@@ -375,25 +529,61 @@ export default function HomePage() {
   const [loading, setLoading]             = useState(true);
   const [activeBrand, setActiveBrand]     = useState<string | null>(null);
   const [chatOpen, setChatOpen]           = useState(false);
-  const { selectedCity, isNearbyActive }  = useLocation();
+  const { selectedCity, isNearbyActive, location }  = useLocation();
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      let q = supabase.from("products").select("*").order("created_at", { ascending: false }).limit(100);
+      // Fetch more so scoring has enough data to work with
+      let q = supabase.from("products").select("*").order("created_at", { ascending: false }).limit(300);
       if (isNearbyActive && selectedCity) q = q.ilike("city", `%${selectedCity}%`);
       const { data } = await q;
-      const products = data || [];
+      const raw = data || [];
+
+      // ── Location-aware scoring (invisible to user) ──────────────
+      const now      = Date.now();
+      const userCity = (selectedCity || location || "").toLowerCase().trim();
+
+      const scored = raw.map((p: any) => {
+        let score = 0;
+        const pCity  = (p.city  || "").toLowerCase().trim();
+        const pState = (p.state || "").toLowerCase().trim();
+
+        // City match → highest priority
+        if (userCity && pCity === userCity)                                    score += 100;
+        else if (userCity && (pCity.includes(userCity) || userCity.includes(pCity))) score += 60;
+        else if (pState)                                                        score += 20;
+
+        // Freshness bonus
+        const ageDays = (now - new Date(p.created_at).getTime()) / 86400000;
+        if      (ageDays <= 1)  score += 30;
+        else if (ageDays <= 3)  score += 20;
+        else if (ageDays <= 7)  score += 10;
+        else if (ageDays <= 14) score += 5;
+
+        // Has images
+        if (Array.isArray(p.images) && p.images.length > 0) score += 5;
+
+        // Small jitter — feed never looks the same
+        score += Math.random() * 8;
+
+        return { ...p, _score: score };
+      });
+
+      scored.sort((a: any, b: any) => b._score - a._score);
+      const products = scored.map(({ _score, ...p }: any) => p);
+      // ────────────────────────────────────────────────────────────
+
       setAllProducts(products);
       const grouped: Record<string, any[]> = {};
       for (const brand of ALL_BRANDS) {
-        grouped[brand.name] = products.filter(p => (p.brand || "").toLowerCase().includes(brand.name.toLowerCase())).slice(0, 4);
+        grouped[brand.name] = products.filter((p: any) => (p.brand || "").toLowerCase().includes(brand.name.toLowerCase())).slice(0, 4);
       }
       setBrandProducts(grouped);
       setLoading(false);
     };
     fetchData();
-  }, [isNearbyActive, selectedCity]);
+  }, [isNearbyActive, selectedCity, location]);
 
   const isAllMode = !activeBrand;
 
@@ -413,6 +603,7 @@ export default function HomePage() {
       <div className="mt-4 mb-2"><NearbyToggle /></div>
 
       {isAllMode && <RecentlyAddedSection products={allProducts} loading={loading} />}
+      {isAllMode && <ConditionSection />}
       {isAllMode && <div className="mt-6"><SellCTA /></div>}
       {isAllMode && <TopBrandsSection brandProducts={brandProducts} loading={loading} />}
 
@@ -422,7 +613,7 @@ export default function HomePage() {
       </div>
 
       <FloatingNav />
-      <BuyzzeChat isOpen={chatOpen} onClose={() => setChatOpen(false)} />
+      <BuyzzeChat isOpen={chatOpen} onClose={() => setChatOpen(false)} isDesktop={false} />
     </main>
   );
 }

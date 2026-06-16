@@ -14,24 +14,57 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const { product_id } = await req.json();
+
+    const body = await req.json();
+    const product_id = Number(body.product_id); // ✅ always number
     if (!product_id) {
       return NextResponse.json({ error: "product_id required" }, { status: 400 });
     }
-    const { data: existing } = await supabaseAdmin
+
+    // Check existing
+    const { data: existing, error: selectErr } = await supabaseAdmin
       .from("favorites")
       .select("id")
       .eq("user_id", userId)
       .eq("product_id", product_id)
       .maybeSingle();
+
+    if (selectErr) {
+      console.error("Select error:", selectErr);
+      return NextResponse.json({ error: selectErr.message }, { status: 500 });
+    }
+
     if (existing) {
-      await supabaseAdmin.from("favorites").delete().eq("user_id", userId).eq("product_id", product_id);
+      // Remove
+      const { error: deleteErr } = await supabaseAdmin
+        .from("favorites")
+        .delete()
+        .eq("user_id", userId)
+        .eq("product_id", product_id);
+
+      if (deleteErr) {
+        console.error("Delete error:", deleteErr);
+        return NextResponse.json({ error: deleteErr.message }, { status: 500 });
+      }
       return NextResponse.json({ success: true, action: "removed" });
     } else {
-      await supabaseAdmin.from("favorites").insert({ user_id: userId, product_id: product_id, created_at: new Date().toISOString() });
+      // Add
+      const { error: insertErr } = await supabaseAdmin
+        .from("favorites")
+        .insert({
+          user_id: userId,
+          product_id: product_id,
+          created_at: new Date().toISOString(),
+        });
+
+      if (insertErr) {
+        console.error("Insert error:", insertErr);
+        return NextResponse.json({ error: insertErr.message }, { status: 500 });
+      }
       return NextResponse.json({ success: true, action: "added" });
     }
   } catch (err: any) {
+    console.error("Favorites POST error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
@@ -42,16 +75,21 @@ export async function GET(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ success: true, favorites: [] });
     }
+
     const { data, error } = await supabaseAdmin
       .from("favorites")
       .select("id, product_id, created_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
+
     if (error) {
+      console.error("Favorites GET error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    return NextResponse.json({ success: true, favorites: data });
+
+    return NextResponse.json({ success: true, favorites: data ?? [] });
   } catch (err: any) {
+    console.error("Favorites GET catch:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

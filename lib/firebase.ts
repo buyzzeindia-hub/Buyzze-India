@@ -15,5 +15,7 @@ const firebaseConfig = {
 const app =
   getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
+export { app }; // ✅ app export added — firebaseAuth.ts ke liye zaruri
+
 export const database = getDatabase(app);
-export const db = database; // ✅ FIX: db alias added
+export const db = database;

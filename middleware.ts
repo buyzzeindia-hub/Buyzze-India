@@ -19,13 +19,19 @@ const isAuthRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth();
 
+  // 1. Check karo kya user ke paas Fast Auth (Google/Truecaller) ki cookie hai?
+  const hasFastAuth = req.cookies.has("buyzze_fast_session");
+
+  // 2. Agar dono me se kisi ek se bhi login hai, toh user authenticated hai
+  const isUserLoggedIn = !!userId || hasFastAuth;
+
   // Logged in + auth route → home pe bhejo
-  if (userId && isAuthRoute(req)) {
+  if (isUserLoggedIn && isAuthRoute(req)) {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
   // Not logged in + protected route → login pe bhejo
-  if (!userId && isProtectedRoute(req)) {
+  if (!isUserLoggedIn && isProtectedRoute(req)) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 

@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { PHONE_CATALOG } from "../constants/catalog";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
+import { ChevronRight, ArrowLeft, Search, MapPin, Check, Camera, Image as ImageIcon } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────────
-   TYPES  (unchanged)
+   ✅ TYPES (Saved with granular conditions)
 ───────────────────────────────────────────────────────────── */
 type ProductFormData = {
   title: string; description: string; price: string;
@@ -14,89 +14,82 @@ type ProductFormData = {
   storage: string; color: string; condition: string;
   category: string; state: string; city: string;
   pincode: string; address: string; images: string[];
+  
+  // Granular Conditions Columns (Must exist in Supabase 'products' table)
+  cond_screen: string;
+  cond_body: string;
+  cond_cam: string;
+  cond_func: string;
+  cond_warr: string;
+  cond_age: string;
 };
 
 const EMPTY_FORM: ProductFormData = {
   title: "", description: "", price: "", brand: "", model: "",
   ram: "", storage: "", color: "", condition: "", category: "Mobile",
   state: "", city: "", pincode: "", address: "", images: [],
+  cond_screen: "", cond_body: "", cond_cam: "", cond_func: "", cond_warr: "", cond_age: "",
 };
 
+const BRANDS = [
+  { id: "Apple", name: "Apple", logo: "/logos/apple.svg", invertInDark: true },
+  { id: "Samsung", name: "Samsung", logo: "/logos/samsung.svg", invertInDark: false },
+  { id: "Google", name: "Google", logo: "/logos/google.svg", invertInDark: false },
+  { id: "OnePlus", name: "OnePlus", logo: "/logos/OnePlus-Logo.wine.svg", invertInDark: false },
+  { id: "Vivo", name: "Vivo", logo: "/logos/vivo.svg", invertInDark: false },
+  
+  // Niche ke teeno me maine invertInDark 'true' kiya hai taaki dark mode me invisible na hon
+  { id: "Xiaomi", name: "Xiaomi", logo: "/logos/xiaomi.svg", invertInDark: true },
+  { id: "Oppo", name: "Oppo", logo: "/logos/Oppo-Logo.wine.svg", invertInDark: true },
+  
+  // Is file ko apne folder me rename karke exactly 'motorola.svg' kar dena
+  { id: "Motorola", name: "Motorola", logo: "/logos/motorola.svg", invertInDark: true },
+];
+
 /* ─────────────────────────────────────────────────────────────
-   STEP 1 — IMAGE COMPRESSION
-   Uses browser-image-compression (npm install browser-image-compression)
-   Falls back gracefully if library fails — original file still uploads
+   IMAGE COMPRESSION & WATERMARK
 ───────────────────────────────────────────────────────────── */
 async function compressImage(file: File): Promise<File> {
   try {
-    // Dynamic import — only loads when user actually selects images
     const imageCompression = (await import("browser-image-compression")).default;
-
     const compressed = await imageCompression(file, {
-      maxSizeMB:        0.3,      // target ≤ 300 KB (hard limit)
-      maxWidthOrHeight: 1080,     // resize to max 1080px — still sharp on mobile
-      useWebWorker:     true,     // non-blocking — UI stays responsive
-      fileType:         "image/webp", // convert to webp → smallest format
-      initialQuality:   0.78,     // start lower so 300KB target is hit reliably
+      maxSizeMB: 0.3, maxWidthOrHeight: 1080, useWebWorker: true,
+      fileType: "image/webp", initialQuality: 0.78,
     });
-
-    // imageCompression returns Blob — wrap back into File
-    return new File([compressed], file.name.replace(/\.[^.]+$/, ".webp"), {
-      type: "image/webp",
-    });
+    return new File([compressed], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" });
   } catch (err) {
-    console.warn("⚠️ Compression failed, using original file:", err);
-    return file; // safe fallback
+    return file; 
   }
 }
 
-/* ─────────────────────────────────────────────────────────────
-   STEP 2 — WATERMARK
-   Pure Canvas API — no extra library needed
-   Adds "BuYzze" text bottom-right corner, OLX-style pill badge
-───────────────────────────────────────────────────────────── */
 async function addWatermark(file: File): Promise<File> {
   return new Promise((resolve) => {
     const img = new window.Image();
     const url = URL.createObjectURL(file);
-    img.src   = url;
+    img.src = url;
 
     img.onload = () => {
-      const canvas  = document.createElement("canvas");
-      canvas.width  = img.naturalWidth;
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
       canvas.height = img.naturalHeight;
-      const ctx     = canvas.getContext("2d");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { URL.revokeObjectURL(url); resolve(file); return; }
 
-      if (!ctx) {
-        URL.revokeObjectURL(url);
-        resolve(file); // fallback — no watermark but still uploads
-        return;
-      }
-
-      // Draw original image
       ctx.drawImage(img, 0, 0);
-
-      /* ── Watermark config ── */
-      const W        = img.naturalWidth;
-      const H        = img.naturalHeight;
-      const fontSize = Math.max(Math.round(W * 0.038), 14); // responsive size
-      const text     = "BuYzze";
-      const pad      = Math.round(W * 0.025);               // padding from edge
+      const W = img.naturalWidth; const H = img.naturalHeight;
+      const fontSize = Math.max(Math.round(W * 0.038), 14);
+      const text = "BuYzze"; const pad = Math.round(W * 0.025);
 
       ctx.font = `900 ${fontSize}px 'Arial Black', Arial, sans-serif`;
       ctx.textBaseline = "middle";
 
-      const textW  = ctx.measureText(text).width;
-      const pillW  = textW + pad * 2.2;
-      const pillH  = fontSize * 1.55;
-      const pillX  = W - pillW - pad;
-      const pillY  = H - pillH - pad;
+      const textW = ctx.measureText(text).width;
+      const pillW = textW + pad * 2.2; const pillH = fontSize * 1.55;
+      const pillX = W - pillW - pad; const pillY = H - pillH - pad;
       const radius = pillH * 0.38;
 
-      // Dark semi-transparent background pill
       ctx.fillStyle = "rgba(10, 10, 20, 0.62)";
       ctx.beginPath();
-      // Manual rounded rect (works in all browsers, no need for roundRect)
       ctx.moveTo(pillX + radius, pillY);
       ctx.lineTo(pillX + pillW - radius, pillY);
       ctx.quadraticCurveTo(pillX + pillW, pillY, pillX + pillW, pillY + radius);
@@ -109,55 +102,24 @@ async function addWatermark(file: File): Promise<File> {
       ctx.closePath();
       ctx.fill();
 
-      // Subtle white border on pill
       ctx.strokeStyle = "rgba(255,255,255,0.18)";
-      ctx.lineWidth   = Math.max(1, fontSize * 0.06);
+      ctx.lineWidth = Math.max(1, fontSize * 0.06);
       ctx.stroke();
 
-      // "BuYzze" text — white with slight blue tint
       ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
       ctx.fillText(text, pillX + pad * 1.1, pillY + pillH / 2);
 
       URL.revokeObjectURL(url);
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) { resolve(file); return; }
-          resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), {
-            type: "image/webp",
-          }));
-        },
-        "image/webp",
-        0.80, // keep final file ≤ 300 KB after watermark draw
-      );
+      canvas.toBlob((blob) => {
+        if (!blob) { resolve(file); return; }
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" }));
+      }, "image/webp", 0.80);
     };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve(file); // safe fallback
-    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
   });
 }
 
-/* ─────────────────────────────────────────────────────────────
-   STEP 3 — FULL PIPELINE
-   compress → watermark → return processed File
-───────────────────────────────────────────────────────────── */
-async function processImage(file: File): Promise<File> {
-  const compressed  = await compressImage(file);   // 1. compress
-  const watermarked = await addWatermark(compressed); // 2. watermark
-  return watermarked;
-}
-
-/* ─────────────────────────────────────────────────────────────
-   UPLOAD STATUS TYPE
-───────────────────────────────────────────────────────────── */
-type UploadPhase =
-  | "idle"
-  | "compressing"
-  | "watermarking"
-  | "uploading"
-  | "done";
+type UploadPhase = "idle" | "compressing" | "watermarking" | "uploading" | "done";
 
 /* ─────────────────────────────────────────────────────────────
    MAIN COMPONENT
@@ -171,102 +133,79 @@ export default function ProductForm({
   onSubmit: (data: ProductFormData) => Promise<void>;
   onComplete: () => void;
 }) {
-  const [form,        setForm]        = useState<ProductFormData>(EMPTY_FORM);
-  const [uploading,   setUploading]   = useState(false);
-  const [saving,      setSaving]      = useState(false);
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState<ProductFormData>(EMPTY_FORM);
+
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [uploadPhase, setUploadPhase] = useState<UploadPhase>("idle");
-  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
 
-  /* ── initialValues sync (unchanged) ── */
   useEffect(() => {
     if (initialValues) {
-      setForm({
-        title:       initialValues.title       ?? "",
-        description: initialValues.description ?? "",
-        price:       initialValues.price?.toString() ?? "",
-        brand:       initialValues.brand       ?? "",
-        model:       initialValues.model       ?? "",
-        ram:         initialValues.ram         ?? "",
-        storage:     initialValues.storage     ?? "",
-        color:       initialValues.color       ?? "",
-        condition:   initialValues.condition   ?? "",
-        category:    initialValues.category    ?? "Mobile",
-        state:       initialValues.state       ?? "",
-        city:        initialValues.city        ?? "",
-        pincode:     initialValues.pincode     ?? "",
-        address:     initialValues.address     ?? "",
-        images:      initialValues.images      ?? [],
-      });
+      setForm((p) => ({ ...p, ...initialValues }));
     }
   }, [initialValues]);
 
-  const update = (key: keyof ProductFormData, value: string) =>
-    setForm(p => ({ ...p, [key]: value }));
+  const update = (key: keyof ProductFormData, value: string) => setForm(p => ({ ...p, [key]: value }));
 
-  /* ── Pincode auto-fill (unchanged) ── */
+  // AUTO CONDITION ENGINE
+  useEffect(() => {
+    const { cond_screen, cond_body, cond_cam, cond_func, cond_warr, cond_age } = form;
+    if (!cond_screen) return;
+    
+    let finalCondition = "Used-Superb";
+    
+    if (cond_screen === "Broken" || cond_body === "Damaged" || cond_cam === "Faulty" || cond_func === "Issues") {
+      finalCondition = "Used-Fair";
+    } else if (cond_screen === "Scratches" || cond_body === "Dents" || cond_warr === "Out of Warranty" || cond_age === "2+ years") {
+      finalCondition = "Used-Good";
+    }
+    
+    update("condition", finalCondition);
+  }, [form.cond_screen, form.cond_body, form.cond_cam, form.cond_func, form.cond_warr, form.cond_age]);
+
   const handlePincode = async (val: string) => {
     const pin = val.replace(/[^0-9]/g, "").slice(0, 6);
     update("pincode", pin);
     if (pin.length === 6) {
       try {
-        const res  = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+        const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
         const data = await res.json();
         if (data[0].Status === "Success") {
-          update("city",  data[0].PostOffice[0].District);
+          update("city", data[0].PostOffice[0].District);
           update("state", data[0].PostOffice[0].State);
         }
       } catch { console.error("Pincode API Error"); }
     }
   };
 
-  /* ── UPDATED uploadImages — with compression + watermark pipeline ── */
   const uploadImages = async (files: FileList) => {
     setUploading(true);
     const fileArr = Array.from(files);
-    setUploadProgress({ current: 0, total: fileArr.length });
 
     try {
       const urls: string[] = [];
-
       for (let i = 0; i < fileArr.length; i++) {
         const file = fileArr[i];
-        setUploadProgress({ current: i + 1, total: fileArr.length });
-
-        // ── Phase 1: Compress ──
         setUploadPhase("compressing");
         const compressed = await compressImage(file);
-
-        // ── Phase 2: Watermark ──
         setUploadPhase("watermarking");
         const watermarked = await addWatermark(compressed);
-
-        // ── Phase 3: Upload to Supabase ──
         setUploadPhase("uploading");
-        const name = `${Date.now()}-${Math.random().toString(36).slice(2)}.webp`;
 
+        const name = `${Date.now()}-${Math.random().toString(36).slice(2)}.webp`;
         const { error } = await supabase.storage
           .from("products-images")
-          .upload(name, watermarked, {
-            contentType: "image/webp",
-            cacheControl: "3600",
-          });
+          .upload(name, watermarked, { contentType: "image/webp", cacheControl: "3600" });
 
         if (error) throw error;
-
-        const { data } = supabase.storage
-          .from("products-images")
-          .getPublicUrl(name);
-
+        const { data } = supabase.storage.from("products-images").getPublicUrl(name);
         urls.push(data.publicUrl);
       }
-
       setUploadPhase("done");
       setForm(p => ({ ...p, images: [...p.images, ...urls] }));
-
-      // reset phase after brief moment
       setTimeout(() => setUploadPhase("idle"), 1200);
-
     } catch (e: any) {
       alert("Upload failed: " + e.message);
       setUploadPhase("idle");
@@ -275,276 +214,319 @@ export default function ProductForm({
     }
   };
 
-  /* ── handleSubmit (unchanged) ── */
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
+    if (!form.title) {
+      form.title = `${form.brand} ${form.model} - ${form.condition}`;
+    }
     setSaving(true);
     try {
       await onSubmit(form);
       setShowSuccess(true);
-      setTimeout(onComplete, 2000);
+      setTimeout(onComplete, 2500);
     } catch (e: any) { alert(e.message); }
     finally { setSaving(false); }
   };
 
-  /* ── Upload status label ── */
-  const uploadStatusLabel = (): string => {
-    const { current, total } = uploadProgress;
-    const suffix = total > 1 ? ` (${current}/${total})` : "";
-    switch (uploadPhase) {
-      case "compressing":   return `Compressing${suffix}…`;
-      case "watermarking":  return `Adding watermark${suffix}…`;
-      case "uploading":     return `Uploading${suffix}…`;
-      case "done":          return "✓ Done!";
-      default:              return "Add images";
-    }
-  };
-
-  const isProcessing = uploading;
-
-  /* ── Styles (unchanged) ── */
-  const inputStyle  = "w-full bg-gray-50 dark:bg-[#1e293b] border-2 border-gray-100 dark:border-gray-800 focus:border-blue-500 p-4 rounded-2xl outline-none transition-all text-gray-900 dark:text-white font-medium";
-  const selectStyle = "w-full bg-gray-50 dark:bg-[#1e293b] border-2 border-gray-100 dark:border-gray-800 focus:border-blue-500 p-4 rounded-2xl outline-none transition-all text-gray-900 dark:text-white font-bold appearance-none";
-
-  /* ── Success screen (unchanged) ── */
   if (showSuccess) {
     return (
-      <div className="fixed inset-0 z-50 bg-white dark:bg-[#05080d] flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-80 h-80">
+      <div className="fixed inset-0 z-50 bg-white dark:bg-[#0a0a0a] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-80 h-80 opacity-90">
           <DotLottieReact src="/success-list.lottie" autoplay />
         </div>
-        <h2 className="text-3xl font-black text-blue-600">Listing Saved!</h2>
+        <h2 className="text-3xl font-light tracking-wide text-neutral-900 dark:text-white mt-8">Listing Published</h2>
+        <p className="text-sm font-light text-neutral-500 mt-2 tracking-widest uppercase">Your device is now live on the marketplace</p>
       </div>
     );
   }
 
+  // ✅ Graded Helper for Condition Chips (Premium UI)
+  const ConditionBlock = ({ label, propKey, options }: { label: string, propKey: keyof ProductFormData, options: string[] }) => (
+    <div className="mb-10 lg:mb-12">
+      <h4 className="text-sm font-medium tracking-wide text-neutral-400 dark:text-neutral-500 mb-4 lg:mb-5">{label}</h4>
+      <div className="flex flex-wrap gap-3 lg:gap-4">
+        {options.map((opt: string) => {
+          const isSelected = form[propKey] === opt;
+          return (
+            <button
+              key={opt}
+              onClick={() => update(propKey, opt)}
+              className={`px-6 lg:px-8 py-3 lg:py-4 rounded-full text-sm font-medium transition-all duration-300 border ${
+                isSelected 
+                  ? "bg-neutral-900 border-neutral-900 text-white dark:bg-white dark:border-white dark:text-neutral-900 shadow-xl" 
+                  : "bg-transparent border-neutral-200 text-neutral-600 hover:border-neutral-400 dark:border-neutral-800 dark:text-neutral-400 dark:hover:border-neutral-600"
+              }`}
+            >
+              {opt}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const activeBrandData = BRANDS.find(b => b.id === form.brand);
+
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="grid gap-5 bg-white dark:bg-[#0f172a] p-6 md:p-10 rounded-[2.5rem] border dark:border-gray-800 shadow-2xl"
-    >
-      {/* ── Title & Price (unchanged) ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase text-blue-600 ml-2">Product Title</label>
-          <input className={inputStyle} placeholder="Title" value={form.title}
-            onChange={e => update("title", e.target.value)} required />
-        </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase text-blue-600 ml-2">Price</label>
-          <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
-            <input className={`${inputStyle} pl-8 text-xl font-black text-blue-600`}
-              placeholder="Price" type="number" value={form.price}
-              onChange={e => update("price", e.target.value)} required />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Brand, Model, RAM, Storage (unchanged) ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Brand</label>
-          <input className={inputStyle} list="brands" value={form.brand}
-            onChange={e => update("brand", e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Model</label>
-          <input className={inputStyle} value={form.model}
-            onChange={e => update("model", e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase text-gray-400 ml-2">RAM</label>
-          <select className={selectStyle} value={form.ram}
-            onChange={e => update("ram", e.target.value)}>
-            <option value="">Select</option>
-            {["2GB","4GB","6GB","8GB","12GB","16GB"].map(r => <option key={r} value={r}>{r}</option>)}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Storage</label>
-          <select className={selectStyle} value={form.storage}
-            onChange={e => update("storage", e.target.value)}>
-            <option value="">Select</option>
-            {["32GB","64GB","128GB","256GB","512GB","1TB"].map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {/* ── Condition & Color (unchanged) ── */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Condition</label>
-          <select className={selectStyle} value={form.condition}
-            onChange={e => update("condition", e.target.value)}>
-            <option value="">Select</option>
-            <option value="Used-Superb">Used-Superb</option>
-            <option value="Used-Good">Used-Good</option>
-            <option value="Used-Fair">Used-Fair</option>
-          </select>
-        </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Color</label>
-          <input className={inputStyle} value={form.color}
-            onChange={e => update("color", e.target.value)} />
-        </div>
-      </div>
-
-      {/* ── Description (unchanged) ── */}
-      <div className="space-y-1">
-        <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Description</label>
-        <textarea className={`${inputStyle} h-24 resize-none`} placeholder="Details..."
-          value={form.description} onChange={e => update("description", e.target.value)} />
-      </div>
-
-      {/* ── Location (unchanged) ── */}
-      <div className="space-y-1 pt-2">
-        <label className="text-[10px] font-black uppercase text-blue-600 ml-2">Pickup Location</label>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input className={inputStyle} placeholder="Pincode" value={form.pincode}
-            onChange={e => handlePincode(e.target.value)} maxLength={6} required />
-          <input className={`${inputStyle} opacity-60`} placeholder="City" value={form.city} readOnly />
-          <input className={`${inputStyle} opacity-60`} placeholder="State" value={form.state} readOnly />
-        </div>
-        <input className={`${inputStyle} mt-2`} placeholder="Full Address" value={form.address}
-          onChange={e => update("address", e.target.value)} required />
-      </div>
-
-      {/* ── IMAGES — updated with status indicator ── */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between mb-1 px-1">
-          <label className="text-[10px] font-black uppercase text-blue-600 ml-1">
-            Photos
-          </label>
-          {/* Processing badge */}
-          {uploadPhase !== "idle" && (
-            <span className="flex items-center gap-1.5 text-[10px] font-black px-3 py-1 rounded-full"
-              style={{
-                background: uploadPhase === "done" ? "#dcfce7" : "#eff6ff",
-                color:      uploadPhase === "done" ? "#15803d" : "#1d4ed8",
-                border:     uploadPhase === "done" ? "1px solid #bbf7d0" : "1px solid #bfdbfe",
-              }}>
-              {uploadPhase !== "done" && (
-                /* spinning circle */
-                <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24"
-                  fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-                </svg>
-              )}
-              {uploadStatusLabel()}
-            </span>
-          )}
-        </div>
-
-        <div className={`relative border-2 border-dashed rounded-3xl text-center transition-all duration-300 ${
-          isProcessing
-            ? "border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-500/5"
-            : "border-gray-200 dark:border-gray-800"
-        }`}
-          style={{ padding: "clamp(16px,4vw,24px)" }}>
-
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            disabled={isProcessing}
-            className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed"
-            onChange={e => e.target.files && uploadImages(e.target.files)}
-          />
-
-          {/* Drop zone content */}
-          {!isProcessing ? (
-            <div className="pointer-events-none">
-              <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center mx-auto mb-2">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                  stroke="#1A56DB" strokeWidth="2" strokeLinecap="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="17 8 12 3 7 8"/>
-                  <line x1="12" y1="3" x2="12" y2="15"/>
-                </svg>
-              </div>
-              <p className="text-sm font-bold text-gray-500 dark:text-white/40">
-                Tap to add photos
-              </p>
-              <p className="text-[10px] text-gray-400 dark:text-white/25 mt-1">
-                Auto-compressed · BuYzze watermark added
-              </p>
-            </div>
-          ) : (
-            /* Processing animation */
-            <div className="pointer-events-none py-2">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                {/* Animated dots */}
-                {[0,1,2].map(i => (
-                  <div key={i} className="w-2 h-2 rounded-full bg-blue-500"
-                    style={{ animation: `bounce 1s ${i * 0.15}s ease-in-out infinite` }}/>
-                ))}
-              </div>
-              <p className="text-sm font-black text-blue-600 dark:text-blue-400">
-                {uploadStatusLabel()}
-              </p>
-              {uploadProgress.total > 1 && (
-                <div className="mt-2 mx-auto max-w-[200px]">
-                  <div className="w-full h-1.5 bg-blue-100 dark:bg-blue-500/20 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                      style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
-                    />
-                  </div>
+    <div className="w-full max-w-[90rem] mx-auto flex flex-col md:flex-row bg-white dark:bg-[#0a0a0a] rounded-3xl md:border dark:border-neutral-800/60 shadow-[0_8px_40px_rgb(0,0,0,0.04)] dark:shadow-none overflow-hidden min-h-[75vh] md:m-4">
+      
+      {/* 🛠️ WIDER PC SIDEBAR */}
+      <div className="hidden md:flex md:w-[40%] bg-neutral-50/50 dark:bg-[#111111] border-r border-neutral-200/60 dark:border-neutral-800/60 p-12 flex-col justify-between">
+        <div>
+          <h2 className="text-3xl font-light tracking-wide text-neutral-900 dark:text-white mb-3">Post Your Device Ad</h2>
+          <p className="text-sm font-light text-neutral-500 tracking-wide leading-relaxed max-w-sm">Sell faster by providing precise specifications and authentic device condition.</p>
+          
+          <div className="mt-20 space-y-12">
+            {[
+              { num: 1, title: "Identity", desc: "Select Brand & Specifications" },
+              { num: 2, title: "Diagnostics", desc: "Audit Hardware & Condition" },
+              { num: 3, title: "Valuation", desc: "Set Price, Photos & Location" }
+            ].map((s) => (
+              <div key={s.num} className={`flex items-start gap-5 transition-all duration-500 ${step >= s.num ? "opacity-100" : "opacity-30"}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-medium border-2 transition-colors ${step === s.num ? "bg-neutral-900 border-neutral-900 text-white dark:bg-white dark:border-white dark:text-neutral-900" : "border-neutral-300 dark:border-neutral-700 text-neutral-500"}`}>
+                  {step > s.num ? <Check size={16} /> : s.num}
                 </div>
-              )}
-            </div>
-          )}
-
-          <style>{`
-            @keyframes bounce {
-              0%,100% { transform: translateY(0); }
-              50%      { transform: translateY(-6px); }
-            }
-          `}</style>
-        </div>
-
-        {/* Image previews */}
-        {form.images.length > 0 && (
-          <div className="flex gap-3 mt-3 flex-wrap">
-            {form.images.map((img, idx) => (
-              <div key={img} className="relative group">
-                {/* Preview */}
-                <img
-                  src={img}
-                  alt={`photo-${idx + 1}`}
-                  className="w-20 h-20 object-cover rounded-xl border-2 dark:border-gray-700 shadow-md"
-                />
-                {/* Watermark indicator badge */}
-                <span className="absolute bottom-1 left-1 text-[7px] font-black px-1 py-0.5 rounded"
-                  style={{ background: "rgba(10,10,20,0.62)", color: "rgba(255,255,255,0.88)" }}>
-                  BuYzze
-                </span>
-                {/* Remove button */}
-                <button
-                  type="button"
-                  onClick={() => setForm(p => ({ ...p, images: p.images.filter(i => i !== img) }))}
-                  className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white rounded-full w-6 h-6 text-xs shadow-lg transition-colors flex items-center justify-center"
-                >
-                  ×
-                </button>
+                <div>
+                  <h4 className={`text-lg tracking-wide ${step === s.num ? "font-medium text-neutral-900 dark:text-white" : "font-light text-neutral-500"}`}>{s.title}</h4>
+                  <p className="text-xs font-light text-neutral-400 mt-1.5 tracking-wide leading-relaxed">{s.desc}</p>
+                </div>
               </div>
             ))}
           </div>
-        )}
+        </div>
+        <div className="text-[11px] uppercase tracking-widest text-neutral-400 font-light border-t border-neutral-100 dark:border-neutral-800/60 pt-6">
+          Secured by BuYzze Enterprise Index
+        </div>
       </div>
 
-      {/* ── Submit button (unchanged) ── */}
-      <button
-        disabled={saving || uploading}
-        className="bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white py-5 rounded-[2rem] font-black uppercase tracking-widest active:scale-95 transition-all"
-      >
-        {saving ? "Saving..." : "Save Listing"}
-      </button>
+      {/* 📱 MOBILE NAVIGATION BAR */}
+      <div className="md:hidden px-6 py-5 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-white dark:bg-[#0a0a0a] sticky top-0 z-20">
+        <div className="flex items-center gap-3">
+          {step > 1 && (
+            <button onClick={() => setStep(step - 1)} className="p-2 text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors">
+              <ArrowLeft size={20} strokeWidth={1.5} />
+            </button>
+          )}
+          <span className="text-sm font-medium tracking-wider uppercase text-neutral-900 dark:text-white">
+            {step === 1 ? "Identity" : step === 2 ? "Diagnostics" : "Valuation"}
+          </span>
+        </div>
+        <div className="text-xs font-medium text-neutral-400 tracking-widest">{step} / 3</div>
+      </div>
 
-      <datalist id="brands">
-        {Object.keys(PHONE_CATALOG).map(b => <option key={b} value={b} />)}
-      </datalist>
-    </form>
+      {/* 🚀 MAIN CONTENT AREA */}
+      <div className="flex-1 p-6 md:p-16 overflow-y-auto relative bg-white dark:bg-[#0a0a0a]">
+        
+        {/* ── STEP 1: BRAND & MODEL ── */}
+        {step === 1 && (
+          <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+            {!form.brand ? (
+              <>
+                <h3 className="text-4xl font-light tracking-wide text-neutral-900 dark:text-white mb-10">Select Manufacturer</h3>
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                  {BRANDS.map(b => (
+                    <button 
+                      key={b.id} 
+                      onClick={() => update("brand", b.id)} 
+                      className="aspect-square bg-neutral-50/50 dark:bg-[#111111] border border-neutral-200/60 dark:border-neutral-800 rounded-3xl p-8 xl:p-10 flex flex-col items-center justify-center gap-5 hover:border-neutral-400 dark:hover:border-neutral-500 transition-all duration-300 group shadow-sm"
+                    >
+                      <img 
+                        src={b.logo} 
+                        alt={b.name} 
+                        className={`h-24 xl:h-28 object-contain opacity-80 group-hover:opacity-100 transition-opacity duration-300 ${b.invertInDark ? 'dark:invert' : ''}`} 
+                        onError={(e) => { (e.target as HTMLElement).style.display = 'none'; e.currentTarget.parentElement!.innerHTML = `<span class="text-3xl font-light text-neutral-400">${b.name}</span>`; }} 
+                      />
+                      <span className="text-xs font-medium tracking-wide text-neutral-600 dark:text-neutral-400 opacity-60 group-hover:opacity-100 transition-opacity">{b.name}</span>
+                    </button>
+                  ))}
+                  <button 
+                    onClick={() => { const b = prompt("Enter Brand Name"); if (b) update("brand", b); }} 
+                    className="aspect-square bg-transparent border border-dashed border-neutral-300 dark:border-neutral-700 rounded-3xl p-8 flex flex-col items-center justify-center gap-2 hover:border-neutral-900 dark:hover:border-white transition-all text-neutral-400"
+                  >
+                    <span className="text-sm font-light tracking-wide">Other Brand</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="max-w-2xl mx-auto mt-4 animate-in fade-in duration-500">
+                
+                {/* Brand Header */}
+                <div className="flex items-center justify-between pb-8 mb-10 border-b border-neutral-100 dark:border-neutral-800">
+                  <div className="flex items-center gap-6">
+                     <div className="w-20 h-20 bg-neutral-50 dark:bg-[#111111] border border-neutral-200/50 dark:border-neutral-800 rounded-2xl flex items-center justify-center shadow-sm">
+                        {activeBrandData?.logo ? (
+                          <img src={activeBrandData.logo} className={`h-10 object-contain ${activeBrandData.invertInDark ? 'dark:invert' : ''}`} alt={form.brand} />
+                        ) : (
+                          <span className="text-xl font-light">{form.brand[0]}</span>
+                        )}
+                     </div>
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-widest text-neutral-400 mb-1">Manufacturer</p>
+                      <p className="text-3xl font-light tracking-wide dark:text-white">{form.brand}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => update("brand", "")} className="text-xs font-medium uppercase tracking-widest text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors">Change</button>
+                </div>
+
+                {/* Minimalist Inputs */}
+                <div className="space-y-10">
+                  <div>
+                    <label className="text-xs font-medium tracking-wide text-neutral-400 uppercase mb-4 block">Device Model</label>
+                    <div className="relative">
+                      <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-neutral-400" size={24} strokeWidth={1.5} />
+                      <input 
+                        type="text" value={form.model} onChange={(e) => update("model", e.target.value)}
+                        placeholder="e.g. iPhone 15 Pro Max, Galaxy S24 Ultra"
+                        className="w-full bg-transparent border-b-2 border-neutral-200 dark:border-neutral-800 focus:border-neutral-900 dark:focus:border-white py-5 pl-12 pr-4 text-2xl font-light tracking-wide text-neutral-900 dark:text-white outline-none transition-all placeholder:text-neutral-300 dark:placeholder:text-neutral-700"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-10">
+                    <div>
+                      <label className="text-xs font-medium tracking-wide text-neutral-400 uppercase mb-4 block">Memory (RAM)</label>
+                      <select value={form.ram} onChange={(e) => update("ram", e.target.value)} className="w-full bg-neutral-50 dark:bg-[#111111] border border-neutral-200/60 dark:border-neutral-800 rounded-2xl p-5 text-lg font-light tracking-wide outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white appearance-none dark:text-white cursor-pointer transition-all">
+                        <option value="">Select RAM</option>
+                        {["4GB","6GB","8GB","12GB","16GB"].map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium tracking-wide text-neutral-400 uppercase mb-4 block">Storage Capacity</label>
+                      <select value={form.storage} onChange={(e) => update("storage", e.target.value)} className="w-full bg-neutral-50 dark:bg-[#111111] border border-neutral-200/60 dark:border-neutral-800 rounded-2xl p-5 text-lg font-light tracking-wide outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white appearance-none dark:text-white cursor-pointer transition-all">
+                        <option value="">Select Capacity</option>
+                        {["64GB","128GB","256GB","512GB","1TB"].map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <button 
+                    disabled={!form.model || !form.storage} 
+                    onClick={() => setStep(2)}
+                    className="w-full mt-12 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-medium tracking-widest uppercase py-6 rounded-full disabled:opacity-30 active:scale-[0.99] transition-all flex items-center justify-center gap-3 hover:shadow-2xl"
+                  >
+                    Proceed to Diagnostics <ChevronRight size={18} strokeWidth={1.5} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── STEP 2: CONDITION AUDIT ── */}
+        {step === 2 && (
+          <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 max-w-2xl mx-auto pb-10">
+            <h3 className="text-4xl font-light tracking-wide text-neutral-900 dark:text-white mb-10 lg:mb-12">Hardware Diagnostics</h3>
+            
+            <ConditionBlock label="Display Panel / Glass Cover" propKey="cond_screen" options={["Flawless", "Scratches", "Broken"]} />
+            <ConditionBlock label="Chassis / Frame Body" propKey="cond_body" options={["Flawless", "Dents", "Damaged"]} />
+            <ConditionBlock label="Camera Module & System" propKey="cond_cam" options={["Perfect", "Faulty"]} />
+            <ConditionBlock label="Hardware Functionality" propKey="cond_func" options={["All Working", "Issues"]} />
+            <ConditionBlock label="Warranty Coverage" propKey="cond_warr" options={["Under Warranty", "Out of Warranty"]} />
+            <ConditionBlock label="Device Age Profile" propKey="cond_age" options={["0-6 months", "6-12 months", "1-2 years", "2+ years"]} />
+
+            {/* Calculated Grade Card */}
+            {form.cond_screen && form.cond_body && form.cond_cam && form.cond_func && (
+               <div className="mt-12 lg:mt-16 p-8 lg:p-10 bg-neutral-50 dark:bg-[#111111] border border-neutral-200/60 dark:border-neutral-800 rounded-3xl flex items-center justify-between">
+                 <div>
+                   <p className="text-xs font-medium uppercase tracking-widest text-neutral-400 mb-2">Assigned Grade</p>
+                   <p className="text-3xl font-light tracking-wide text-neutral-900 dark:text-white">
+                     {form.condition.replace("Used-", "")} Grade
+                   </p>
+                 </div>
+                 <div className="w-16 h-16 rounded-full border-2 border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-900 dark:text-white">
+                    <Check size={28} strokeWidth={1.5} />
+                 </div>
+               </div>
+            )}
+
+            <button 
+              disabled={!form.cond_screen || !form.cond_body || !form.cond_cam || !form.cond_func || !form.cond_warr || !form.cond_age}
+              onClick={() => setStep(3)}
+              className="w-full mt-12 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-medium tracking-widest uppercase py-6 rounded-full disabled:opacity-30 active:scale-[0.99] transition-all flex items-center justify-center gap-3 hover:shadow-2xl"
+            >
+              Continue to Valuation <ChevronRight size={18} strokeWidth={1.5} />
+            </button>
+          </div>
+        )}
+
+        {/* ── STEP 3: PRICE, PHOTOS & LOCATION ── */}
+        {step === 3 && (
+          <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 max-w-2xl mx-auto pb-10 relative">
+            <h3 className="text-4xl font-light tracking-wide text-neutral-900 dark:text-white mb-10 lg:mb-12">Asset Valuation</h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-12 mb-10 lg:mb-12">
+              <div>
+                <label className="text-xs font-medium tracking-wide text-neutral-400 uppercase mb-4 block">Expected Disbursal Amount</label>
+                <div className="relative">
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 text-neutral-400 text-xl font-light">₹</span>
+                  <input type="number" value={form.price} onChange={e => update("price", e.target.value)} placeholder="0" className="w-full bg-transparent border-b-2 border-neutral-200 dark:border-neutral-800 focus:border-neutral-900 dark:focus:border-white py-5 pl-8 pr-4 text-3xl font-light tracking-wide text-neutral-900 dark:text-white outline-none transition-all placeholder:text-neutral-300 dark:placeholder:text-neutral-700" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium tracking-wide text-neutral-400 uppercase mb-4 block">Device Color Profile</label>
+                <input type="text" value={form.color} onChange={e => update("color", e.target.value)} placeholder="e.g. Midnight Black, Titanium" className="w-full bg-transparent border-b-2 border-neutral-200 dark:border-neutral-800 focus:border-neutral-900 dark:focus:border-white py-5 text-xl font-light tracking-wide text-neutral-900 dark:text-white outline-none transition-all placeholder:text-neutral-300 dark:placeholder:text-neutral-700" />
+              </div>
+            </div>
+
+            <div className="mb-10 lg:mb-12">
+              <label className="text-xs font-medium tracking-wide text-neutral-400 uppercase mb-5 flex items-center gap-2"><MapPin size={16} strokeWidth={1.5}/> Servicing Coordinates (Pickup)</label>
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <input type="text" value={form.pincode} onChange={e => handlePincode(e.target.value)} maxLength={6} placeholder="Pincode" className="w-full bg-neutral-50 dark:bg-[#111111] border border-neutral-200/60 dark:border-neutral-800 rounded-2xl p-4 lg:p-5 text-sm font-light tracking-wide dark:text-white outline-none focus:border-neutral-400 transition-all text-center" />
+                <input type="text" value={form.city} readOnly placeholder="City" className="w-full bg-transparent border border-neutral-200/40 dark:border-neutral-800/40 rounded-2xl p-4 lg:p-5 text-sm font-light tracking-wide text-neutral-400 text-center outline-none" />
+                <input type="text" value={form.state} readOnly placeholder="State" className="w-full bg-transparent border border-neutral-200/40 dark:border-neutral-800/40 rounded-2xl p-4 lg:p-5 text-sm font-light tracking-wide text-neutral-400 text-center outline-none" />
+              </div>
+              <input type="text" value={form.address} onChange={e => update("address", e.target.value)} placeholder="House No., Building, Street Name (Full pickup address)" className="w-full bg-neutral-50 dark:bg-[#111111] border border-neutral-200/60 dark:border-neutral-800 rounded-2xl p-5 text-base font-light tracking-wide dark:text-white outline-none focus:border-neutral-400 transition-all" />
+            </div>
+
+            <div className="mb-10 lg:mb-12">
+              <label className="text-xs font-medium tracking-wide text-neutral-400 uppercase mb-4 block">Additional Inventory Notes (Optional)</label>
+              <textarea value={form.description} onChange={e => update("description", e.target.value)} placeholder="Include details about battery health (if possible), inbox accessories (bill/box), etc." className="w-full bg-neutral-50 dark:bg-[#111111] border border-neutral-200/60 dark:border-neutral-800 rounded-2xl p-6 text-base font-light tracking-wide dark:text-white outline-none focus:border-neutral-400 transition-all resize-none min-h-[140px]" />
+            </div>
+
+            <div className="mb-14">
+              <div className="flex items-center justify-between mb-5">
+                <label className="text-xs font-medium tracking-wide text-neutral-400 uppercase">Authentic Device Media</label>
+                {uploadPhase !== "idle" && (
+                  <span className="text-[10px] font-medium tracking-widest uppercase px-3 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 animate-pulse">Processing media...</span>
+                )}
+              </div>
+              
+              <div className="relative border border-dashed border-neutral-300 dark:border-neutral-700 rounded-3xl p-12 lg:p-14 text-center hover:bg-neutral-50 dark:hover:bg-[#111111] transition-all overflow-hidden group">
+                <input type="file" multiple accept="image/*" disabled={uploading} className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed z-10" onChange={e => e.target.files && uploadImages(e.target.files)} />
+                <div className="pointer-events-none flex flex-col items-center gap-4">
+                  <div className="w-16 h-16 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 group-hover:scale-110 transition-transform">
+                     <Camera size={24} strokeWidth={1.5} />
+                  </div>
+                  <div>
+                    <p className="text-lg font-light tracking-wide text-neutral-900 dark:text-white">Upload Device Imagery</p>
+                    <p className="text-[13px] font-light text-neutral-400 mt-1.5 tracking-wide leading-relaxed">High-resolution images directly impact listing visibility and disbursal offers.</p>
+                  </div>
+                </div>
+              </div>
+
+              {form.images.length > 0 && (
+                <div className="flex gap-4 mt-8 flex-wrap">
+                  {form.images.map((img) => (
+                    <div key={img} className="relative group w-28 h-28 lg:w-32 lg:h-32">
+                      <img src={img} className="w-full h-full object-cover rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-sm" alt="Preview" />
+                      <button onClick={() => setForm(p => ({ ...p, images: p.images.filter(i => i !== img) }))} className="absolute -top-3 -right-3 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-full w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-lg border border-neutral-200/50 dark:border-neutral-700/50">
+                        <span className="text-base mt-[-3px]">×</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button 
+              disabled={saving || uploading || !form.price || !form.pincode}
+              onClick={handleSubmit}
+              className="w-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-medium tracking-widest uppercase py-6 rounded-full disabled:opacity-30 active:scale-[0.99] transition-all shadow-xl hover:shadow-2xl"
+            >
+              {saving ? "Publishing Ad..." : "Publish Asset"}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

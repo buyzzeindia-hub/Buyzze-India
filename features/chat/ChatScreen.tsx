@@ -1,7 +1,7 @@
 "use client";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-import { useUser } from "@clerk/nextjs"; // ✅ Clerk
+import { useBuyzzeAuth } from "@/hooks/useBuyzzeAuth"; // ✅ Custom Unified Auth Hook
 import { ref, onValue } from "firebase/database";
 import { database } from "@/lib/firebase";
 import { supabase } from "@/lib/supabaseClient";
@@ -16,8 +16,9 @@ export function ChatScreen() {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const { user, isLoaded } = useUser(); // ✅ Clerk se user lo
-  const userId = user?.id ?? null;      // ✅ Clerk user ID
+  // ✅ Unified Auth Call
+  const { user, isLoaded } = useBuyzzeAuth(); 
+  const [userId, setUserId] = useState<string | null>(null);
 
   const [otherUserId, setOtherUserId]   = useState<string | null>(null);
   const [productTitle, setProductTitle] = useState("");
@@ -27,7 +28,19 @@ export function ChatScreen() {
   const [otherUserAvatar, setOtherUserAvatar] = useState("");
   const [myRole, setMyRole] = useState<"buyer" | "seller" | null>(null);
 
-  // ✅ Clerk loaded hone ke baad Firebase se chat data lo
+  // ✅ Client-side Unified Auth ID setting
+  useEffect(() => {
+    if (user?.id) {
+      setUserId(user.id);
+    } else if (typeof window !== "undefined") {
+      const isLogged = localStorage.getItem("buyzze_logged_in") === "true";
+      if (isLogged) {
+        setUserId("oauth_buyzze_active_user");
+      }
+    }
+  }, [user]);
+
+  // Firebase Chat Loading
   useEffect(() => {
     if (!isLoaded || !userId) return;
 
@@ -49,7 +62,6 @@ export function ChatScreen() {
       );
       setProductImage(chat.productImage || "");
 
-      // ✅ Supabase se dusre user ka profile fetch karo (public read — OK hai)
       if (otherId) {
         supabase
           .from("profiles")
@@ -83,7 +95,7 @@ export function ChatScreen() {
   const otherRoleLabel = myRole === "seller" ? "Buyer" : "Seller";
   const initials = otherUserName.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "B";
 
-  // ✅ Clerk load hone tak wait karo
+  // Auth loader safeguard
   if (!isLoaded) return null;
 
   return (
@@ -97,9 +109,6 @@ export function ChatScreen() {
         fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif",
       }}
     >
-      {/* ══════════════════════════════════════════════
-          HEADER
-          ══════════════════════════════════════════════ */}
       <header
         className="chat-header"
         style={{
@@ -109,13 +118,11 @@ export function ChatScreen() {
           boxShadow: "0 2px 16px rgba(0,0,0,0.09)",
         }}
       >
-        {/* ── User row ── */}
         <div style={{
           display: "flex", alignItems: "center", gap: 12,
           padding: "12px 16px", maxWidth: 768, margin: "0 auto", width: "100%",
         }}>
 
-          {/* Back button */}
           <button
             onClick={() => router.back()}
             style={{
@@ -131,7 +138,6 @@ export function ChatScreen() {
             </svg>
           </button>
 
-          {/* Avatar + online indicator */}
           <div style={{ position: "relative", flexShrink: 0 }}>
             <div style={{
               width: 46, height: 46, borderRadius: "50%", overflow: "hidden",
@@ -155,7 +161,6 @@ export function ChatScreen() {
             }} />
           </div>
 
-          {/* Name + role badge + status */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
               <span style={{
@@ -194,7 +199,6 @@ export function ChatScreen() {
             </div>
           </div>
 
-          {/* More options */}
           <button style={{
             width: 38, height: 38, borderRadius: "50%",
             background: "transparent", border: "none", cursor: "pointer",
@@ -208,7 +212,6 @@ export function ChatScreen() {
           </button>
         </div>
 
-        {/* ── Product banner ── */}
         {productTitle && (
           <div style={{ padding: "0 16px 12px", maxWidth: 768, margin: "0 auto", width: "100%" }}>
             <div style={{
@@ -257,9 +260,6 @@ export function ChatScreen() {
         )}
       </header>
 
-      {/* ══════════════════════════════════════════════
-          MESSAGES
-          ══════════════════════════════════════════════ */}
       <main
         ref={scrollRef}
         style={{
@@ -293,9 +293,6 @@ export function ChatScreen() {
         </div>
       </main>
 
-      {/* ══════════════════════════════════════════════
-          INPUT
-          ══════════════════════════════════════════════ */}
       <footer style={{ flexShrink: 0 }}>
         <div style={{ maxWidth: 768, margin: "0 auto", width: "100%" }}>
           <ChatInput value={input} onChange={handleTyping} onSend={handleSend} />

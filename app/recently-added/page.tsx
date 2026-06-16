@@ -4,106 +4,154 @@ import { supabase } from "@/lib/supabaseClient";
 import FavoriteButton from "@/components/FavoriteButton";
 import Link from "next/link";
 import Image from "next/image";
-import { MapPin, Search, ShieldCheck, Clock, ArrowLeft, SlidersHorizontal } from "lucide-react";
+import { MapPin, Search, ShieldCheck, Clock, ArrowLeft, SlidersHorizontal, Cpu, HardDrive } from "lucide-react";
 
 const FONT = "'Roboto', 'Segoe UI', system-ui, sans-serif";
 
-// Condition color coding
+// Condition color coding — same logic
 function conditionStyle(condition: string) {
   const c = condition.toLowerCase();
-  if (c.includes("excellent")) return { bg: "#dbeafe", color: "#1d4ed8" };
-  if (c.includes("good"))      return { bg: "#dcfce7", color: "#15803d" };
-  if (c.includes("fair"))      return { bg: "#fef9c3", color: "#854d0e" };
-  return { bg: "#f3f4f6", color: "#374151" };
+  if (c.includes("excellent")) return { bg: "rgba(59,130,246,0.1)",  color: "#1d4ed8", border: "rgba(59,130,246,0.2)" };
+  if (c.includes("good"))      return { bg: "rgba(34,197,94,0.1)",   color: "#16a34a", border: "rgba(34,197,94,0.2)" };
+  if (c.includes("fair"))      return { bg: "rgba(234,179,8,0.1)",   color: "#a16207", border: "rgba(234,179,8,0.2)" };
+  return                               { bg: "rgba(0,0,0,0.05)",      color: "#6b7280", border: "rgba(0,0,0,0.1)" };
 }
 
-// Brand bg gradient map
+// Brand image bg — dark tones for green bg contrast
 const BRAND_BG: Record<string, string> = {
-  apple:    "linear-gradient(145deg,#f5f5f7,#e8e8ed)",
-  samsung:  "linear-gradient(145deg,#eef0ff,#dde2ff)",
-  oneplus:  "linear-gradient(145deg,#fff0f1,#ffd6da)",
-  xiaomi:   "linear-gradient(145deg,#f0f9ff,#bae6fd)",
-  vivo:     "linear-gradient(145deg,#eff1ff,#d8dfff)",
-  oppo:     "linear-gradient(145deg,#edf6fc,#c8e8f7)",
-  realme:   "linear-gradient(145deg,#fdfaed,#f5edbb)",
-  google:   "linear-gradient(145deg,#edf4ff,#d2e5ff)",
-  motorola: "linear-gradient(145deg,#f5f0ff,#e5d6ff)",
-  nothing:  "linear-gradient(145deg,#f0f0f0,#e0e0e0)",
-  nokia:    "linear-gradient(145deg,#e8f5e9,#c8e6c9)",
-  poco:     "linear-gradient(145deg,#fff3e0,#ffe0b2)",
+  apple:    "#f3f4f6",
+  samsung:  "#eff6ff",
+  oneplus:  "#fff1f2",
+  xiaomi:   "#f0f9ff",
+  vivo:     "#f0f9ff",
+  oppo:     "#ecfdf5",
+  realme:   "#fefce8",
+  google:   "#eff6ff",
+  motorola: "#faf5ff",
+  nothing:  "#f3f4f6",
+  nokia:    "#f0fdf4",
+  poco:     "#fff7ed",
 };
-
 function getBrandBg(brand?: string) {
-  if (!brand) return "linear-gradient(145deg,#f8fafc,#f1f5f9)";
-  return BRAND_BG[brand.toLowerCase()] || "linear-gradient(145deg,#f8fafc,#f1f5f9)";
+  if (!brand) return "#f3f4f6";
+  return BRAND_BG[brand.toLowerCase()] || "#f3f4f6";
 }
 
-// ─── Product Card (vertical list style) ───────────────────────────────────────
+function timeAgo(dateStr: string): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return new Date(dateStr).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
+
+// ─── Product Card ──────────────────────────────────────────────────────────────
 function ProductCard({ product }: { product: any }) {
-  const postedDate = new Date(product.created_at).toLocaleDateString("en-GB", {
-    day: "2-digit", month: "short", year: "numeric",
-  });
-  const daysAgo = Math.floor(
-    (Date.now() - new Date(product.created_at).getTime()) / (1000 * 60 * 60 * 24)
-  );
-  const timeLabel = daysAgo === 0 ? "Today" : daysAgo === 1 ? "Yesterday" : `${daysAgo}d ago`;
+  const timeLabel = timeAgo(product.created_at);
   const cStyle = product.condition ? conditionStyle(product.condition) : null;
 
   return (
     <div className="relative group">
-      <FavoriteButton productId={product.id} size="sm" />
+      <div className="absolute top-3 right-3 z-20">
+        <FavoriteButton productId={product.id} size="sm" />
+      </div>
+
       <Link
         href={`/products/${product.id}`}
-        className="flex gap-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-3.5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+        style={{
+          display: "flex", gap: 16,
+          background: "#ffffff",
+          backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+          borderRadius: 20, border: "1px solid rgba(255,255,255,0.13)",
+          padding: 14,
+          boxShadow: "0 4px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1)",
+          transition: "all 0.25s ease", textDecoration: "none",
+        }}
+        onMouseEnter={e => {
+          const el = e.currentTarget as HTMLElement;
+          el.style.background = "#f8fafc";
+          el.style.transform = "translateY(-2px)";
+          el.style.boxShadow = "0 8px 24px rgba(0,0,0,0.1)";
+        }}
+        onMouseLeave={e => {
+          const el = e.currentTarget as HTMLElement;
+          el.style.background = "#ffffff";
+          el.style.transform = "translateY(0)";
+          el.style.boxShadow = "0 2px 12px rgba(0,0,0,0.07)";
+        }}
       >
         {/* Image */}
-        <div
-          className="w-28 h-28 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden"
-          style={{ background: getBrandBg(product.brand) }}
-        >
+        <div style={{
+          width: 112, height: 112, borderRadius: 14, flexShrink: 0,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          overflow: "hidden", background: getBrandBg(product.brand),
+          border: "1px solid rgba(0,0,0,0.06)", position: "relative",
+        }}>
           <Image
             src={product.images?.[0] || "/placeholder.png"}
             alt={product.title}
             width={96} height={96}
             className="object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+            style={{ userSelect: "none" }}
+            onContextMenu={e => e.preventDefault()}
           />
+          <div style={{
+            position: "absolute", inset: 0, borderRadius: 14, pointerEvents: "none",
+            background: "none",
+          }} />
         </div>
 
-        {/* Details */}
-        <div className="flex-1 min-w-0 flex flex-col justify-between">
+        {/* Info */}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div>
-            <div className="flex items-start justify-between gap-2 mb-1">
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
               <div>
                 {product.brand && (
-                  <p className="text-[10px] font-extrabold text-blue-500 uppercase tracking-widest mb-0.5">
+                  <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#2563eb", marginBottom: 2 }}>
                     {product.brand}
                   </p>
                 )}
-                <h3 className="text-[14px] font-semibold text-gray-900 line-clamp-2 leading-snug">
+                <h3 style={{
+                  fontSize: 14, fontWeight: 600, color: "#111827", lineHeight: 1.35,
+                  display: "-webkit-box", WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical", overflow: "hidden",
+                }}>
                   {product.title}
                 </h3>
               </div>
               {cStyle && product.condition && (
-                <span
-                  className="flex-shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide"
-                  style={{ backgroundColor: cStyle.bg, color: cStyle.color }}
-                >
+                <span style={{
+                  flexShrink: 0, fontSize: 9, fontWeight: 700, padding: "3px 8px",
+                  borderRadius: 20, textTransform: "uppercase", letterSpacing: "0.06em",
+                  backgroundColor: cStyle.bg, color: cStyle.color, border: `1px solid ${cStyle.border}`,
+                }}>
                   {product.condition}
                 </span>
               )}
             </div>
 
-            {/* Spec pills */}
             {(product.ram || product.storage) && (
-              <div className="flex gap-1.5 flex-wrap mt-1.5">
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
                 {product.ram && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                    {product.ram} RAM
+                  <span style={{
+                    display: "flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600,
+                    padding: "2px 8px", borderRadius: 20,
+                    background: "rgba(37,99,235,0.08)", color: "#2563eb", border: "1px solid rgba(37,99,235,0.15)",
+                  }}>
+                    <Cpu size={8} />{product.ram} RAM
                   </span>
                 )}
                 {product.storage && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-100">
-                    {product.storage}
+                  <span style={{
+                    display: "flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600,
+                    padding: "2px 8px", borderRadius: 20,
+                    background: "rgba(124,58,237,0.08)", color: "#7c3aed", border: "1px solid rgba(124,58,237,0.15)",
+                  }}>
+                    <HardDrive size={8} />{product.storage}
                   </span>
                 )}
               </div>
@@ -111,26 +159,42 @@ function ProductCard({ product }: { product: any }) {
           </div>
 
           <div>
-            {/* Price */}
-            <p className="text-[18px] font-black text-gray-900 mt-2">
+            <p style={{
+              fontSize: 20, fontWeight: 900, color: "#111827", letterSpacing: "-0.5px", marginTop: 8,
+              
+            }}>
               ₹{product.price?.toLocaleString("en-IN")}
             </p>
 
-            {/* Footer row */}
-            <div className="flex items-center justify-between mt-1.5">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1 text-gray-400">
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(0,0,0,0.07)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, color: "rgba(0,0,0,0.5)" }}>
                   <MapPin size={10} />
-                  <span className="text-[10px] truncate max-w-[110px]">{product.city}</span>
+                  <span style={{ fontSize: 10, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {product.city}
+                  </span>
                 </div>
-                <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-100 rounded-md px-1.5 py-0.5">
-                  <ShieldCheck size={9} className="text-emerald-600" />
-                  <span className="text-[9px] font-bold text-emerald-700">Assured</span>
-                </div>
+                {product.is_assured && (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 3,
+                    background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)",
+                    borderRadius: 6, padding: "2px 6px",
+                  }}>
+                    <ShieldCheck size={9} style={{ color: "#16a34a" }} />
+                    <span style={{ fontSize: 9, fontWeight: 700, color: "#16a34a" }}>Assured</span>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-1 text-gray-400">
-                <Clock size={9} />
-                <span className="text-[10px]">{timeLabel}</span>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 4,
+                background: "#ffffff", borderRadius: 8,
+                padding: "3px 8px", border: "1px solid rgba(255,255,255,0.1)",
+              }}>
+                <Clock size={9} style={{ color: "rgba(0,0,0,0.4)" }} />
+                <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(0,0,0,0.45)" }}>{timeLabel}</span>
               </div>
             </div>
           </div>
@@ -140,21 +204,22 @@ function ProductCard({ product }: { product: any }) {
   );
 }
 
-// ─── Sort / Filter options ─────────────────────────────────────────────────────
+// ─── Sort options ──────────────────────────────────────────────────────────────
 const SORT_OPTIONS = [
-  { label: "Newest First", value: "newest" },
-  { label: "Price: Low → High", value: "price_asc" },
+  { label: "Newest First",      value: "newest"     },
+  { label: "Price: Low → High", value: "price_asc"  },
   { label: "Price: High → Low", value: "price_desc" },
 ];
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function RecentlyAddedPage() {
   const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("newest");
+  const [loading,  setLoading]  = useState(true);
+  const [search,   setSearch]   = useState("");
+  const [sort,     setSort]     = useState("newest");
   const [showSort, setShowSort] = useState(false);
 
+  // ── same fetch logic ──
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -170,82 +235,130 @@ export default function RecentlyAddedPage() {
     fetchData();
   }, []);
 
-  // Filter by search
+  // ── same filter logic ──
   const filtered = products.filter(p => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
       (p.title || "").toLowerCase().includes(q) ||
       (p.brand || "").toLowerCase().includes(q) ||
-      (p.city || "").toLowerCase().includes(q)
+      (p.city  || "").toLowerCase().includes(q)
     );
   });
 
-  // Sort
+  // ── same sort logic ──
   const sorted = [...filtered].sort((a, b) => {
-    if (sort === "price_asc") return (a.price || 0) - (b.price || 0);
+    if (sort === "price_asc")  return (a.price || 0) - (b.price || 0);
     if (sort === "price_desc") return (b.price || 0) - (a.price || 0);
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
   return (
-    <main className="min-h-screen bg-[#f1f3f6]" style={{ fontFamily: FONT }}>
+    <main style={{ minHeight: "100vh", fontFamily: FONT, background: "linear-gradient(135deg, #fce4ec 0%, #f3e5f5 45%, #e8eaf6 100%)", position: "relative" }}>
 
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link href="/" className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 hover:bg-gray-200 transition-colors">
-            <ArrowLeft size={15} className="text-gray-600" />
+      {/* Noise overlay */}
+      <div style={{
+        position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, opacity: 0,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E")`,
+      }} />
+
+      {/* ── Sticky Header ── */}
+      <div style={{
+        position: "sticky", top: 0, zIndex: 40,
+        background: "rgba(255,255,255,0.92)",
+        backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+        borderBottom: "1px solid rgba(219,39,119,0.1)",
+        boxShadow: "0 2px 16px rgba(0,0,0,0.06)",
+      }}>
+        <div style={{ maxWidth: 768, margin: "0 auto", padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+          <Link href="/" style={{
+            width: 34, height: 34, borderRadius: "50%",
+            background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.08)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0, textDecoration: "none",
+          }}>
+            <ArrowLeft size={15} color="#374151" />
           </Link>
-          <div className="flex-1">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <h1 className="text-[16px] font-bold text-gray-900">Recently Added</h1>
-              <span className="flex items-center gap-1 bg-blue-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
+          <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+              <h1 style={{ fontSize: 17, fontWeight: 800, color: "#111827", letterSpacing: "-0.3px", margin: 0 }}>
+                Recently Added
+              </h1>
+              <span style={{
+                display: "flex", alignItems: "center", gap: 4,
+                background: "linear-gradient(135deg, #ec4899, #a855f7)",
+                color: "#ffffff", fontSize: 9, fontWeight: 800,
+                padding: "3px 8px", borderRadius: 20,
+              }}>
                 <Clock size={8} /> Last 7 days
               </span>
             </div>
             {!loading && (
-              <p className="text-[11px] text-gray-400">{sorted.length} product{sorted.length !== 1 ? "s" : ""} found</p>
+              <p style={{ fontSize: 11, color: "rgba(0,0,0,0.45)", margin: 0 }}>
+                {sorted.length} product{sorted.length !== 1 ? "s" : ""} found
+              </p>
             )}
           </div>
         </div>
 
-        {/* Search + Sort bar */}
-        <div className="max-w-3xl mx-auto px-4 pb-3 flex gap-2">
-          <div className="flex-1 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
-            <Search size={13} className="text-gray-400 flex-shrink-0" />
+        {/* Search + Sort */}
+        <div style={{ maxWidth: 768, margin: "0 auto", padding: "0 16px 12px", display: "flex", gap: 8 }}>
+          <div style={{
+            flex: 1, display: "flex", alignItems: "center", gap: 8,
+            background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 14, padding: "10px 14px",
+          }}>
+            <Search size={13} color="rgba(0,0,0,0.4)" style={{ flexShrink: 0 }} />
             <input
               type="text"
               placeholder="Search by name, brand, city..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="flex-1 bg-transparent text-[13px] text-gray-700 placeholder-gray-400 outline-none font-medium"
-              style={{ fontFamily: FONT }}
+              style={{
+                flex: 1, background: "transparent", border: "none", outline: "none",
+                fontSize: 13, color: "#111827", fontFamily: FONT,
+              }}
             />
             {search && (
-              <button onClick={() => setSearch("")} className="text-gray-400 hover:text-gray-600 text-[13px]">✕</button>
+              <button onClick={() => setSearch("")}
+                style={{ color: "rgba(0,0,0,0.4)", background: "none", border: "none", cursor: "pointer", fontSize: 13 }}>
+                ✕
+              </button>
             )}
           </div>
-          {/* Sort button */}
-          <div className="relative">
+
+          <div style={{ position: "relative" }}>
             <button
               onClick={() => setShowSort(!showSort)}
-              className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-3 py-2 text-[12px] font-semibold text-gray-600 hover:border-gray-300 transition-colors"
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 14, padding: "10px 14px",
+                fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.55)",
+                cursor: "pointer", fontFamily: FONT,
+              }}
             >
-              <SlidersHorizontal size={12} />
-              Sort
+              <SlidersHorizontal size={12} /> Sort
             </button>
             {showSort && (
-              <div className="absolute right-0 top-10 bg-white border border-gray-100 rounded-xl shadow-lg z-50 min-w-[180px] overflow-hidden">
+              <div style={{
+                position: "absolute", right: 0, top: 46,
+                background: "#0d2a0d", border: "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 14, boxShadow: "0 16px 40px rgba(0,0,0,0.5)",
+                zIndex: 50, minWidth: 180, overflow: "hidden",
+              }}>
                 {SORT_OPTIONS.map(opt => (
                   <button
                     key={opt.value}
                     onClick={() => { setSort(opt.value); setShowSort(false); }}
-                    className={`w-full text-left px-4 py-2.5 text-[12px] font-medium transition-colors ${
-                      sort === opt.value
-                        ? "bg-blue-50 text-blue-600 font-bold"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
+                    style={{
+                      width: "100%", textAlign: "left", padding: "10px 16px",
+                      fontSize: 12, fontFamily: FONT, border: "none", cursor: "pointer",
+                      background: sort === opt.value ? "rgba(74,222,128,0.15)" : "transparent",
+                      color: sort === opt.value ? "#be185d" : "#374151",
+                      fontWeight: sort === opt.value ? 700 : 500,
+                      borderBottom: "1px solid rgba(0,0,0,0.05)",
+                    }}
                   >
                     {opt.label}
                   </button>
@@ -256,34 +369,56 @@ export default function RecentlyAddedPage() {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-3xl mx-auto px-4 py-4 space-y-3 pb-24">
+      {/* ── Cards ── */}
+      <div style={{ maxWidth: 768, margin: "0 auto", padding: "20px 16px 100px", position: "relative", zIndex: 1 }}>
         {loading ? (
-          [...Array(6)].map((_, i) => (
-            <div key={i} className="bg-white rounded-2xl h-32 animate-pulse border border-gray-100" />
-          ))
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {[...Array(6)].map((_, i) => (
+              <div key={i} style={{
+                height: 130, borderRadius: 20,
+                background: "rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.05)",
+                animation: "zzpulse 1.5s ease-in-out infinite",
+                animationDelay: `${i * 0.1}s`,
+              }} />
+            ))}
+          </div>
         ) : sorted.length === 0 ? (
-          <div className="py-20 text-center bg-white rounded-2xl border border-gray-100">
-            <Clock size={32} className="text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 font-semibold text-[15px]">
+          <div style={{
+            padding: "80px 20px", textAlign: "center",
+            background: "#ffffff", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 24,
+          }}>
+            <Clock size={36} color="rgba(0,0,0,0.15)" style={{ margin: "0 auto 12px" }} />
+            <p style={{ fontSize: 15, fontWeight: 600, color: "rgba(0,0,0,0.6)" }}>
               {search ? "No results found" : "No products added in last 7 days"}
             </p>
-            <p className="text-gray-400 text-[12px] mt-1">
+            <p style={{ fontSize: 12, color: "rgba(0,0,0,0.35)", marginTop: 4 }}>
               {search ? "Try different keywords" : "Check back soon!"}
             </p>
             {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="mt-4 text-[12px] font-bold text-blue-600 border border-blue-200 px-4 py-1.5 rounded-lg"
-              >
+              <button onClick={() => setSearch("")} style={{
+                marginTop: 16, fontSize: 12, fontWeight: 700,
+                color: "#be185d", background: "rgba(219,39,119,0.08)",
+                border: "1px solid rgba(219,39,119,0.2)",
+                padding: "6px 16px", borderRadius: 10, cursor: "pointer", fontFamily: FONT,
+              }}>
                 Clear search
               </button>
             )}
           </div>
         ) : (
-          sorted.map(p => <ProductCard key={p.id} product={p} />)
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {sorted.map(p => <ProductCard key={p.id} product={p} />)}
+          </div>
         )}
       </div>
+
+      <style>{`
+        @keyframes zzpulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        input::placeholder { color: rgba(0,0,0,0.3); }
+      `}</style>
     </main>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useUser, useClerk } from "@clerk/nextjs";
+import { useClerk } from "@clerk/nextjs"; // ✅ Sirf logout ke liye rakha hai
+import { useBuyzzeAuth } from "@/hooks/useBuyzzeAuth"; // ✅ Custom Unified Auth Hook
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -14,42 +15,76 @@ import Link from "next/link";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, isLoaded, isSignedIn } = useUser();
+  
+  // ✅ Clerk ke useUser ko replace karke Unified Auth laga diya
+  const { user, isLoaded } = useBuyzzeAuth();
   const { signOut } = useClerk();
+  
+  const [localUserId, setLocalUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [totalProducts, setTotalProducts] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // ✅ Unified ID Syncing (FastAuth vs Clerk)
+  useEffect(() => {
+    if (user?.id) {
+      setLocalUserId(user.id);
+    } else if (typeof window !== "undefined") {
+      const isLogged = localStorage.getItem("buyzze_logged_in") === "true";
+      if (isLogged) {
+        let fastId = localStorage.getItem("buyzze_fast_id");
+        if (!fastId) {
+          fastId = "fast_user_" + Math.random().toString(36).substr(2, 10);
+          localStorage.setItem("buyzze_fast_id", fastId);
+        }
+        setLocalUserId(fastId);
+      }
+    }
+  }, [user]);
+
+  // ✅ Auth Guard & Data Init Loop
   useEffect(() => {
     if (!isLoaded) return;
-    if (!isSignedIn) {
+
+    const isLoggedLocal = typeof window !== "undefined" && localStorage.getItem("buyzze_logged_in") === "true";
+
+    // Redirect Loop Fix: Dono Auth system verify hone ke baad hi redirect karo
+    if (!user && !isLoggedLocal) {
       router.replace("/login");
       return;
     }
 
-    async function init() {
-      const userId = user!.id;
-
-      // Supabase se profile fetch karo
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", userId)
-        .single();
-
-      if (profileData) setProfile(profileData);
-
-      const dashboard = await getDashboardData(userId);
-      setProducts(dashboard.products);
-      setTotalProducts(dashboard.totalProducts);
-      setLoading(false);
+    if (localUserId) {
+      initData(localUserId);
     }
+  }, [isLoaded, user, router, localUserId]);
 
-    init();
-  }, [isLoaded, isSignedIn, router, user]);
+  async function initData(uid: string) {
+    // Supabase se profile fetch karo
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", uid)
+      .single();
+
+    if (profileData) setProfile(profileData);
+
+    const dashboard = await getDashboardData(uid);
+    setProducts(dashboard.products);
+    setTotalProducts(dashboard.totalProducts);
+    setLoading(false);
+  }
 
   const handleLogout = async () => {
+    // ✅ Fast Auth Logout Cleanup (Cookies + LocalStorage)
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("buyzze_logged_in");
+      localStorage.removeItem("buyzze_fast_id");
+      document.cookie = "buyzze_fast_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    }
+    
+    // Clerk Logout Cleanup
     await signOut();
     router.push("/login");
   };
@@ -93,7 +128,7 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      {/* Main Content — bilkul same */}
+      {/* Main Content */}
       <main className="relative z-10 max-w-7xl mx-auto p-6 md:p-10 space-y-10">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
@@ -126,7 +161,8 @@ export default function DashboardPage() {
                 <h3 className="text-lg font-black uppercase tracking-tight">My Listings</h3>
               </div>
               <div className="p-6">
-                <MyProductsList products={products} userId={user!.id} />
+                {/* ✅ Ab MyProductsList ko secure localUserId milega */}
+                {localUserId && <MyProductsList products={products} userId={localUserId} />}
               </div>
             </div>
           </div>

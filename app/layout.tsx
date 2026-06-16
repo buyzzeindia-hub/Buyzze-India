@@ -5,6 +5,8 @@ import BackgroundPattern from "@/components/BackgroundPattern";
 import { LocationProvider } from "@/features/location/context/LocationContext";
 import { SearchProvider } from "@/context/SearchContext";
 import ZzeWrapper from "@/components/ZzeWrapper";
+import Providers from "@/components/Providers";
+import FastAuthPopup from "@/components/auth/FastAuthPopup";
 
 export default function RootLayout({
   children,
@@ -13,24 +15,22 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
-      <html lang="en">
-        <body className="bg-white dark:bg-[#05080d] text-gray-900 transition-colors duration-500 min-h-screen relative antialiased">
-          <BackgroundPattern />
-          <LocationProvider>
-            <SearchProvider>
-              {/* Header — sticky, sits above everything, z-index 100 */}
-              <ConditionalHeader />
-
-              {/* ZzeWrapper — handles push layout + FAB + drawer */}
-              {/* Children (page content) sit inside the push div */}
-              <ZzeWrapper>
-                <main className="relative z-10 bg-transparent">
-                  {children}
-                </main>
-              </ZzeWrapper>
-
-            </SearchProvider>
-          </LocationProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body className="bg-white dark:bg-[#05080d] text-gray-900 dark:text-white transition-colors duration-300 min-h-screen relative antialiased">
+          <Providers>
+            <BackgroundPattern />
+            <LocationProvider>
+             <FastAuthPopup />
+              <SearchProvider>
+                <ConditionalHeader />
+                <ZzeWrapper>
+                  <main className="relative z-10 bg-transparent">
+                    {children}
+                  </main>
+                </ZzeWrapper>
+              </SearchProvider>
+            </LocationProvider>
+          </Providers>
         </body>
       </html>
     </ClerkProvider>

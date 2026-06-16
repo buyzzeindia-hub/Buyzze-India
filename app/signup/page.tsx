@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSignUp } from "@clerk/nextjs";
 import { motion, AnimatePresence } from "framer-motion";
 import { DotLottiePlayer } from "@dotlottie/react-player";
 import "@dotlottie/react-player/dist/index.css";
 import { Loader2 } from "lucide-react";
+import Script from "next/script"; // ✅ Added for Google One-Tap Client Script loading
 import Link from "next/link";
 
 type Step = "signup" | "verify" | "success";
@@ -20,6 +21,115 @@ export default function SignupPage() {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // ── ✅ POPUP FILE AUTH STATES INTEGRATION ──
+  const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [fastLoading, setFastLoading] = useState(false);
+  const [pollingStatus, setPollingStatus] = useState("");
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+
+  const TRUECALLER_APP_KEY = process.env.NEXT_PUBLIC_TRUECALLER_APP_KEY!;
+
+  useEffect(() => {
+    setMounted(true);
+    const checkMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    setIsMobile(checkMobile);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && (window as any).google && googleBtnRef.current && step === "signup") {
+      initGoogleSignIn();
+    }
+  }, [mounted, step]);
+
+  const initGoogleSignIn = () => {
+    try {
+      const googleAuth = (window as any).google?.accounts?.id;
+      if (!googleAuth) return;
+
+      googleAuth.initialize({
+        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+        callback: handleGoogleResponse,
+      });
+
+      googleAuth.renderButton(googleBtnRef.current!, {
+        theme: "outline",
+        size: "large",
+        width: 220,
+        text: "continue_with",
+        shape: "pill",
+      });
+    } catch (err) {
+      console.error("Google Init Error:", err);
+    }
+  };
+
+  const handleGoogleResponse = async (response: any) => {
+    setFastLoading(true);
+    try {
+      const res = await fetch("/api/auth/google-onetap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential: response.credential }),
+      });
+      
+      if (res.ok) {
+        localStorage.setItem("buyzze_logged_in", "true");
+        window.location.href = "/"; 
+      }
+    } catch (error) {
+      console.error("Google Error:", error);
+    } finally {
+      setFastLoading(false);
+    }
+  };
+
+  const handleTruecallerLogin = async () => {
+    setFastLoading(true);
+    setPollingStatus("Opening...");
+    try {
+      const initRes = await fetch("/api/auth/truecaller/init", { method: "POST" });
+      const initData = await initRes.json();
+      
+      if (!initData.success) throw new Error("Init failed");
+      const requestId = initData.request_id;
+
+      const truecallerIntent = `intent://truesdk/web_verify?type=btmsheet&requestNonce=${requestId}&partnerKey=${TRUECALLER_APP_KEY}&partnerName=Buyzze&ctaColor=%232593e8&ctaTextColor=%23ffffff&btnShape=round&loginPrefix=continue&loginSuffix=login#Intent;scheme=truecaller;package=com.truecaller;end`;
+      
+      window.location.href = truecallerIntent;
+
+      let tickCount = 0;
+      const pollInterval = setInterval(async () => {
+        tickCount++;
+        
+        const pollRes = await fetch("/api/auth/truecaller/poll", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ requestId }),
+        });
+        
+        const pollData = await pollRes.json();
+
+        if (pollData.status === "verified") {
+          clearInterval(pollInterval);
+          localStorage.setItem("buyzze_logged_in", "true");
+          window.location.href = "/";
+          return;
+        }
+
+        if (tickCount > 60) {
+          clearInterval(pollInterval);
+          setFastLoading(false);
+        }
+      }, 1000);
+
+    } catch (error) {
+      console.error("Truecaller Error:", error);
+      setPollingStatus("Failed. Use Google.");
+      setFastLoading(false);
+    }
+  };
 
   // ✅ STEP 1: Clerk mein account banao
   const handleSignup = async () => {
@@ -54,10 +164,8 @@ export default function SignupPage() {
       const result = await signUp.attemptEmailAddressVerification({ code });
 
       if (result.status === "complete") {
-        // ✅ Session activate karo pehle
         await setActive({ session: result.createdSessionId });
 
-        // ✅ Supabase mein profile save karo
         try {
           const res = await fetch("/api/create-profile", {
             method: "POST",
@@ -72,11 +180,8 @@ export default function SignupPage() {
           if (!res.ok) {
             const d = await res.json();
             console.error("❌ Profile save failed:", d.error);
-          } else {
-            console.log("✅ Profile saved to Supabase");
           }
         } catch (syncErr) {
-          // Profile save fail ho toh bhi login hone do — non-blocking
           console.error("❌ Profile sync error:", syncErr);
         }
 
@@ -92,8 +197,17 @@ export default function SignupPage() {
     }
   };
 
+  if (!mounted) return null;
+
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 flex flex-col lg:flex-row overflow-hidden font-sans">
+      
+      {/* Google GSI Client Script Injection */}
+      <Script 
+        src="https://accounts.google.com/gsi/client" 
+        strategy="afterInteractive" 
+        onLoad={initGoogleSignIn} 
+      />
 
       {/* Left Side — UI same */}
       <motion.div
@@ -195,6 +309,46 @@ export default function SignupPage() {
                 )}
               </AnimatePresence>
 
+              {/* ── ✅ EXACT POPUP OPTION BUTTONS CONTAINER ── */}
+              <div className="flex flex-col items-center gap-3 w-full mb-6">
+                {isMobile && (
+                  <button
+                    onClick={handleTruecallerLogin}
+                    disabled={fastLoading}
+                    className="w-full max-w-[220px] h-[40px] bg-white border border-[#0087FF] rounded-full flex items-center justify-center gap-2 hover:bg-blue-50 active:scale-[0.98] transition-all disabled:opacity-75 shadow-sm"
+                  >
+                    {fastLoading && pollingStatus.includes("Opening") ? (
+                      <span className="text-[#0087FF] text-sm font-medium">Opening...</span>
+                    ) : (
+                      <>
+                        <img src="/truecaller-logo.webp" alt="TC Logo" className="w-5 h-5 object-contain" />
+                        <img src="/truecaller-text.webp" alt="Truecaller" className="h-[14px] object-contain" />
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {/* Google Injection Anchor Target Div */}
+                <div 
+                  ref={googleBtnRef} 
+                  id="google-btn-container" 
+                  className="w-full flex justify-center min-h-[40px]"
+                ></div>
+                
+                {pollingStatus && !fastLoading && (
+                  <p className="text-[12px] font-medium text-blue-500 mt-1 animate-pulse">
+                    {pollingStatus}
+                  </p>
+                )}
+              </div>
+
+              {/* Divider layout grid line */}
+              <div className="flex items-center gap-4 mb-6">
+                <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800"></div>
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">Or signup with email</span>
+                <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800"></div>
+              </div>
+
               <div className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">Full Name</label>
@@ -216,8 +370,6 @@ export default function SignupPage() {
                     className="w-full px-5 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 focus:border-blue-500 outline-none text-sm font-semibold text-gray-900 dark:text-white transition-all"
                   />
                 </div>
-
-                <div id="clerk-captcha" />
 
                 <button onClick={handleSignup} disabled={loading || !email || !password || !name}
                   className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-black text-xs tracking-[0.2em] uppercase shadow-xl shadow-blue-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-3 mt-2"

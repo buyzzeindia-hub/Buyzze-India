@@ -30,6 +30,7 @@ interface FilterState {
   brands: string[];
   rams: string[];
   storages: string[];
+  conditions: string[];
   priceMin: number;
   priceMax: number;
   city: string;
@@ -41,6 +42,7 @@ const DEFAULT_FILTERS: FilterState = {
   brands: [],
   rams: [],
   storages: [],
+  conditions: [],
   priceMin: 0,
   priceMax: PRICE_MAX,
   city: "",
@@ -70,6 +72,13 @@ function applyFilters(products: any[], filters: FilterState): any[] {
       );
       if (!matched) return false;
     }
+    if (filters.conditions.length > 0) {
+      const pc = (p.condition || "").toLowerCase().replace(/[-\s]/g, "");
+      const matched = filters.conditions.some(
+        (c) => pc.includes(c.toLowerCase().replace(/[-\s]/g, ""))
+      );
+      if (!matched) return false;
+    }
     const price = Number(p.price) || 0;
     if (price < filters.priceMin || price > filters.priceMax) return false;
     if (filters.city.trim()) {
@@ -89,6 +98,7 @@ function countActiveFilters(f: FilterState) {
     f.brands.length +
     f.rams.length +
     f.storages.length +
+    f.conditions.length +
     (f.city ? 1 : 0) +
     (f.priceMin > 0 || f.priceMax < PRICE_MAX ? 1 : 0)
   );
@@ -300,7 +310,7 @@ function FilterPanel({
   onApply: () => void;
   onClear: () => void;
 }) {
-  const toggle = (key: "brands" | "rams" | "storages", val: string) => {
+  const toggle = (key: "brands" | "rams" | "storages" | "conditions", val: string) => {
     const arr = pending[key];
     setPending({
       ...pending,
@@ -312,6 +322,7 @@ function FilterPanel({
     pending.brands.length > 0 ||
     pending.rams.length > 0 ||
     pending.storages.length > 0 ||
+    pending.conditions.length > 0 ||
     pending.city !== "" ||
     pending.priceMin > 0 ||
     pending.priceMax < PRICE_MAX;
@@ -397,6 +408,28 @@ function FilterPanel({
                 }`}
               >
                 {s}
+              </button>
+            ))}
+          </div>
+        </FilterSection>
+
+
+        {/* Condition */}
+        <FilterSection title="Condition" count={pending.conditions.length}>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {[
+              { label: "Used - Superb", value: "used-superb", color: "bg-emerald-600 border-emerald-600 text-white", inactive: "border-emerald-200 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400 hover:border-emerald-500" },
+              { label: "Used - Good",   value: "used-good",   color: "bg-blue-600 border-blue-600 text-white",       inactive: "border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-400 hover:border-blue-500" },
+              { label: "Used - Fair",   value: "used-fair",   color: "bg-amber-500 border-amber-500 text-white",     inactive: "border-amber-200 text-amber-700 dark:border-amber-800 dark:text-amber-400 hover:border-amber-500" },
+            ].map((c) => (
+              <button
+                key={c.value}
+                onClick={() => toggle("conditions", c.value)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all duration-150 ${
+                  pending.conditions.includes(c.value) ? c.color : `bg-white dark:bg-zinc-800 ${c.inactive}`
+                }`}
+              >
+                {c.label}
               </button>
             ))}
           </div>
@@ -543,6 +576,7 @@ function ActiveFilterChips({
   onRemoveStorage,
   onClearCity,
   onClearPrice,
+  onRemoveCondition,
 }: {
   applied: FilterState;
   onRemoveBrand: (b: string) => void;
@@ -550,11 +584,13 @@ function ActiveFilterChips({
   onRemoveStorage: (s: string) => void;
   onClearCity: () => void;
   onClearPrice: () => void;
+  onRemoveCondition: (c: string) => void;
 }) {
   const chips: { label: string; onRemove: () => void }[] = [
     ...applied.brands.map((b) => ({ label: b, onRemove: () => onRemoveBrand(b) })),
     ...applied.rams.map((r) => ({ label: `${r} RAM`, onRemove: () => onRemoveRam(r) })),
     ...applied.storages.map((s) => ({ label: `${s} ROM`, onRemove: () => onRemoveStorage(s) })),
+    ...applied.conditions.map((c) => ({ label: `✦ ${c}`, onRemove: () => onRemoveCondition(c) })),
     ...(applied.city ? [{ label: `📍 ${applied.city}`, onRemove: onClearCity }] : []),
     ...(applied.priceMin > 0 || applied.priceMax < PRICE_MAX
       ? [
@@ -592,14 +628,18 @@ function ActiveFilterChips({
 function SearchResults() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q");
+  const conditionParam = searchParams.get("condition");
   const { setSearchQuery } = useSearch();
 
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [pendingFilters, setPendingFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  const [appliedFilters, setAppliedFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const initialFilters: FilterState = conditionParam
+    ? { ...DEFAULT_FILTERS, conditions: [conditionParam] }
+    : DEFAULT_FILTERS;
+  const [pendingFilters, setPendingFilters] = useState<FilterState>(initialFilters);
+  const [appliedFilters, setAppliedFilters] = useState<FilterState>(initialFilters);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -618,7 +658,8 @@ function SearchResults() {
       setTimeout(() => {
         if (!error) {
           setAllProducts(data || []);
-          setFilteredProducts(data || []);
+          const initF = conditionParam ? { ...DEFAULT_FILTERS, conditions: [conditionParam] } : DEFAULT_FILTERS;
+          setFilteredProducts(applyFilters(data || [], initF));
         }
         setLoading(false);
       }, wait);
@@ -704,12 +745,12 @@ function SearchResults() {
         </div>
 
         {/* Sidebar + Results */}
-        <div className="flex gap-5">
+        <div className="flex gap-5 items-start">
 
           {/* ── PC Sidebar ──────────────────────────────────────────── */}
-          <aside className="hidden md:flex flex-col w-72 flex-shrink-0">
+          <aside className="hidden md:block w-72 flex-shrink-0 sticky top-20" style={{ alignSelf: "flex-start" }}>
             <div
-              className="sticky top-20 bg-white dark:bg-zinc-900 rounded-2xl border border-gray-200 dark:border-zinc-800 overflow-hidden flex flex-col"
+              className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-200 dark:border-zinc-800 overflow-hidden flex flex-col"
               style={{ maxHeight: "calc(100vh - 6rem)" }}
             >
               {/* Sidebar Header */}
@@ -753,6 +794,12 @@ function SearchResults() {
                 removeAndApply({
                   ...appliedFilters,
                   storages: appliedFilters.storages.filter((x) => x !== s),
+                })
+              }
+              onRemoveCondition={(c) =>
+                removeAndApply({
+                  ...appliedFilters,
+                  conditions: appliedFilters.conditions.filter((x) => x !== c),
                 })
               }
               onClearCity={() => removeAndApply({ ...appliedFilters, city: "" })}
