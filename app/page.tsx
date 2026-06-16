@@ -197,8 +197,8 @@ function RecentlyAddedSection({ products, loading }: { products: any[]; loading:
         {/* Header */}
         <div className="flex items-center justify-between mb-5" style={{ position: "relative", zIndex: 1 }}>
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full"
-              className="recently-badge" style={{ background: "linear-gradient(135deg,#ec4899,#a855f7)", color: "#fff" }}>
+            <div className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full recently-badge"
+              style={{ background: "linear-gradient(135deg,#ec4899,#a855f7)", color: "#fff" }}>
               <Clock size={9} /><span>Last 7 Days</span>
             </div>
             <h2 className="recently-title text-[15px] font-bold" style={{ color: "#1f2937" }}>Recently Added</h2>
@@ -206,19 +206,19 @@ function RecentlyAddedSection({ products, loading }: { products: any[]; loading:
           </div>
           <div className="flex items-center gap-2">
             <Link href="/recently-added"
-              className="text-[11px] font-bold hover:opacity-80 flex items-center gap-0.5 transition-opacity"
-              className="recently-viewall" style={{ color: "#be185d" }}>
+              className="text-[11px] font-bold hover:opacity-80 flex items-center gap-0.5 transition-opacity recently-viewall"
+              style={{ color: "#be185d" }}>
               View all <ArrowRight size={11} />
             </Link>
             <div className="flex gap-1">
               <button onClick={() => scroll("l")}
-                className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
-                className="recently-btn" style={{ background: "rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.09)" }}>
+                className="w-7 h-7 rounded-full flex items-center justify-center transition-colors recently-btn"
+                style={{ background: "rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.09)" }}>
                 <ChevronLeft size={12} style={{ color: "rgba(0,0,0,0.5)" }} />
               </button>
               <button onClick={() => scroll("r")}
-                className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
-                className="recently-btn" style={{ background: "rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.09)" }}>
+                className="w-7 h-7 rounded-full flex items-center justify-center transition-colors recently-btn"
+                style={{ background: "rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.09)" }}>
                 <ChevronRight size={12} style={{ color: "rgba(0,0,0,0.5)" }} />
               </button>
             </div>
@@ -230,8 +230,8 @@ function RecentlyAddedSection({ products, loading }: { products: any[]; loading:
           style={{ ...NO_SCROLL, position: "relative", zIndex: 1 }}>
           {loading
             ? [...Array(6)].map((_, i) => (
-                <div key={i} className="flex-shrink-0 w-[152px] h-[230px] rounded-2xl animate-pulse"
-                  className="recently-skeleton" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.05)" }} />
+                <div key={i} className="flex-shrink-0 w-[152px] h-[230px] rounded-2xl animate-pulse recently-skeleton"
+                  style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.05)" }} />
               ))
             : recent.length === 0
             ? <div className="w-full py-12 text-center">
