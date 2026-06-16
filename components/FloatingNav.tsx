@@ -268,7 +268,7 @@ export default function FloatingNav() {
             </div>
 
             {/* Header row */}
-            <div style={{ display: "flex", alignItems: "center", justifyBetween: "space-between", padding: "4px 20px 12px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 20px 12px" }}>
               {selectedDistrict ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <button
