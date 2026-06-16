@@ -254,12 +254,13 @@ export default function RecentlyAddedPage() {
   });
 
   return (
-    <main style={{ minHeight: "100vh", fontFamily: FONT, background: "linear-gradient(135deg, #fce4ec 0%, #f3e5f5 45%, #e8eaf6 100%)", position: "relative" }}>
+    <main style={{ minHeight: "100vh", fontFamily: FONT, background: "linear-gradient(135deg, #fefce8 0%, #fef9c3 100%)", position: "relative" }}>
 
-      {/* Noise overlay */}
+      {/* Minimal Dotted Texture */}
       <div style={{
-        position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, opacity: 0,
-        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E")`,
+        position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, opacity: 1,
+        backgroundImage: "radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px)",
+        backgroundSize: "24px 24px"
       }} />
 
       {/* ── Sticky Header ── */}
@@ -267,8 +268,8 @@ export default function RecentlyAddedPage() {
         position: "sticky", top: 0, zIndex: 40,
         background: "rgba(255,255,255,0.92)",
         backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-        borderBottom: "1px solid rgba(219,39,119,0.1)",
-        boxShadow: "0 2px 16px rgba(0,0,0,0.06)",
+        borderBottom: "1px solid rgba(234,179,8,0.15)",
+        boxShadow: "0 2px 16px rgba(0,0,0,0.04)",
       }}>
         <div style={{ maxWidth: 768, margin: "0 auto", padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
           <Link href="/" style={{
@@ -305,7 +306,7 @@ export default function RecentlyAddedPage() {
         <div style={{ maxWidth: 768, margin: "0 auto", padding: "0 16px 12px", display: "flex", gap: 8 }}>
           <div style={{
             flex: 1, display: "flex", alignItems: "center", gap: 8,
-            background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.4)", border: "1px solid rgba(0,0,0,0.08)",
             borderRadius: 14, padding: "10px 14px",
           }}>
             <Search size={13} color="rgba(0,0,0,0.4)" style={{ flexShrink: 0 }} />
@@ -332,7 +333,7 @@ export default function RecentlyAddedPage() {
               onClick={() => setShowSort(!showSort)}
               style={{
                 display: "flex", alignItems: "center", gap: 6,
-                background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.4)", border: "1px solid rgba(0,0,0,0.08)",
                 borderRadius: 14, padding: "10px 14px",
                 fontSize: 12, fontWeight: 600, color: "rgba(0,0,0,0.55)",
                 cursor: "pointer", fontFamily: FONT,
@@ -343,8 +344,8 @@ export default function RecentlyAddedPage() {
             {showSort && (
               <div style={{
                 position: "absolute", right: 0, top: 46,
-                background: "#0d2a0d", border: "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 14, boxShadow: "0 16px 40px rgba(0,0,0,0.5)",
+                background: "#ffffff", border: "1px solid rgba(0,0,0,0.08)",
+                borderRadius: 14, boxShadow: "0 16px 40px rgba(0,0,0,0.08)",
                 zIndex: 50, minWidth: 180, overflow: "hidden",
               }}>
                 {SORT_OPTIONS.map(opt => (
@@ -354,8 +355,8 @@ export default function RecentlyAddedPage() {
                     style={{
                       width: "100%", textAlign: "left", padding: "10px 16px",
                       fontSize: 12, fontFamily: FONT, border: "none", cursor: "pointer",
-                      background: sort === opt.value ? "rgba(74,222,128,0.15)" : "transparent",
-                      color: sort === opt.value ? "#be185d" : "#374151",
+                      background: sort === opt.value ? "rgba(251,191,36,0.15)" : "transparent",
+                      color: sort === opt.value ? "#b45309" : "#374151",
                       fontWeight: sort === opt.value ? 700 : 500,
                       borderBottom: "1px solid rgba(0,0,0,0.05)",
                     }}
@@ -397,8 +398,8 @@ export default function RecentlyAddedPage() {
             {search && (
               <button onClick={() => setSearch("")} style={{
                 marginTop: 16, fontSize: 12, fontWeight: 700,
-                color: "#be185d", background: "rgba(219,39,119,0.08)",
-                border: "1px solid rgba(219,39,119,0.2)",
+                color: "#b45309", background: "rgba(251,191,36,0.15)",
+                border: "1px solid rgba(251,191,36,0.3)",
                 padding: "6px 16px", borderRadius: 10, cursor: "pointer", fontFamily: FONT,
               }}>
                 Clear search
