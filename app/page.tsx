@@ -98,6 +98,25 @@ function RecentCard({ p }: { p: any }) {
         boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
       }}
     >
+      {/* Sold/Expired Overlay */}
+      {p.status && p.status !== 'active' && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 30,
+          background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(2px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: 16, pointerEvents: 'none'
+        }}>
+          <span style={{
+            background: p.status === 'sold' ? '#ef4444' : '#6b7280',
+            color: 'white', padding: '4px 12px', borderRadius: 8,
+            fontSize: 12, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)', transform: 'rotate(-10deg)'
+          }}>
+            {p.status === 'sold' ? 'Sold Out' : 'Expired'}
+          </span>
+        </div>
+      )}
+
       <FavoriteButton productId={p.id} size="sm" />
       {/* Image — fixed height */}
       <div className="flex items-center justify-center overflow-hidden flex-shrink-0"
@@ -318,9 +337,28 @@ function BrandProductCard({ p, brand }: { p: any; brand: typeof TOP_BRANDS[0] })
   const t = useBrandTokens(brand);
   return (
     <Link href={`/products/${p.id}`}
-      className="flex flex-col rounded-xl border overflow-hidden hover:scale-[1.02] hover:shadow-md transition-all duration-200 group"
+      className="flex flex-col rounded-xl border overflow-hidden hover:scale-[1.02] hover:shadow-md transition-all duration-200 group relative"
       style={{ borderColor: t.border, backgroundColor: t.tagBg }}
     >
+      {/* Sold/Expired Overlay */}
+      {p.status && p.status !== 'active' && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 30,
+          background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(2px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: 12, pointerEvents: 'none'
+        }}>
+          <span style={{
+            background: p.status === 'sold' ? '#ef4444' : '#6b7280',
+            color: 'white', padding: '4px 10px', borderRadius: 6,
+            fontSize: 10, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)', transform: 'rotate(-10deg)'
+          }}>
+            {p.status === 'sold' ? 'Sold' : 'Expired'}
+          </span>
+        </div>
+      )}
+
       <div className="w-full h-[110px] flex items-center justify-center overflow-hidden" style={{ backgroundColor: t.tagBg }}>
         <Image src={p.images?.[0] || "/placeholder.png"} alt={p.title} width={90} height={90}
           className="object-contain p-2 group-hover:scale-110 transition-transform duration-300" />
@@ -534,14 +572,22 @@ export default function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      // Fetch more so scoring has enough data to work with
+      // Fetch data from database
       let q = supabase.from("products").select("*").order("created_at", { ascending: false }).limit(300);
       if (isNearbyActive && selectedCity) q = q.ilike("city", `%${selectedCity}%`);
       const { data } = await q;
-      const raw = data || [];
+      let raw = data || [];
 
-      // ── Location-aware scoring (invisible to user) ──────────────
-      const now      = Date.now();
+      const nowTime = Date.now();
+
+      // ─── FILTER OUT EXPIRED PRODUCTS FROM HOME FEED ───
+      raw = raw.filter((p: any) => {
+        if (p.status === 'expired') return false; 
+        if (p.expires_at && new Date(p.expires_at).getTime() < nowTime) return false;
+        return true; 
+      });
+
+      // ── Location-aware scoring ──────────────────────────────
       const userCity = (selectedCity || location || "").toLowerCase().trim();
 
       const scored = raw.map((p: any) => {
@@ -555,7 +601,7 @@ export default function HomePage() {
         else if (pState)                                                        score += 20;
 
         // Freshness bonus
-        const ageDays = (now - new Date(p.created_at).getTime()) / 86400000;
+        const ageDays = (nowTime - new Date(p.created_at).getTime()) / 86400000;
         if      (ageDays <= 1)  score += 30;
         else if (ageDays <= 3)  score += 20;
         else if (ageDays <= 7)  score += 10;

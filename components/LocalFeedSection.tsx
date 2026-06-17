@@ -69,6 +69,25 @@ function ProductCard({ product }: { product: any }) {
         <FavoriteButton productId={product.id} size="sm" />
       </div>
 
+      {/* Sold/Expired Overlay */}
+      {product.status && product.status !== 'active' && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 30,
+          background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(2px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: 20, pointerEvents: 'none'
+        }}>
+          <span style={{
+            background: product.status === 'sold' ? '#ef4444' : '#6b7280',
+            color: 'white', padding: '6px 16px', borderRadius: 8,
+            fontSize: 14, fontWeight: 900, letterSpacing: '0.1em', textTransform: 'uppercase',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)', transform: 'rotate(-10deg)'
+          }}>
+            {product.status === 'sold' ? 'Sold Out' : 'Expired'}
+          </span>
+        </div>
+      )}
+
       <Link
         href={`/products/${product.id}`}
         style={{

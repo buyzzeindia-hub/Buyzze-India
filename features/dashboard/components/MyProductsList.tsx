@@ -2,13 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 import { getChatCountForProduct } from "../services/chatCount.service";
-import { MessageSquare, ExternalLink, Edit3, Trash2 } from "lucide-react";
+import { MessageSquare, ExternalLink, Edit3, Trash2, CheckCircle } from "lucide-react";
 
-export function MyProductsList({ products, userId }: { products: any[]; userId: string }) {
+export function MyProductsList({ products: initialProducts, userId }: { products: any[]; userId: string }) {
   const router = useRouter();
+  const [products, setProducts] = useState(initialProducts);
   const [chatCounts, setChatCounts] = useState<Record<number, number>>({});
-  const [loadingId, setLoadingId] = useState<number | null>(null);
+  const [loadingId, setLoadingId] = useState<string | number | null>(null);
+
+  // Sync state if props change
+  useEffect(() => {
+    setProducts(initialProducts);
+  }, [initialProducts]);
 
   useEffect(() => {
     async function loadCounts() {
@@ -21,13 +28,38 @@ export function MyProductsList({ products, userId }: { products: any[]; userId: 
     if (products.length) loadCounts();
   }, [products, userId]);
 
+  // ── 1. Mark as Sold Logic ──
+  const markAsSold = async (productId: string | number) => {
+    const ok = confirm("Are you sure you want to mark this as sold? This cannot be undone.");
+    if (!ok) return;
+
+    setLoadingId(`sold-${productId}`);
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({ status: "sold" })
+        .eq("id", productId)
+        .eq("user_id", userId);
+
+      if (error) throw error;
+
+      // Update UI instantly without reloading
+      setProducts(products.map(p => p.id === productId ? { ...p, status: "sold" } : p));
+    } catch (err) {
+      console.error("Error marking as sold:", err);
+      alert("Something went wrong!");
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  // ── 2. Delete Logic (Tumhara Original API Wala) ──
   const deleteProduct = async (product: any) => {
     const ok = confirm("This will permanently delete the product. Continue?");
     if (!ok) return;
 
     setLoadingId(product.id);
     try {
-      // ✅ API route se delete — server pe owner check + images delete + RLS bypass
       const res = await fetch("/api/products/delete", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -41,7 +73,8 @@ export function MyProductsList({ products, userId }: { products: any[]; userId: 
         return;
       }
 
-      window.location.reload();
+      // Update UI instantly instead of full page reload
+      setProducts(products.filter(p => p.id !== product.id));
     } catch (err) {
       alert("Failed to delete");
     } finally {
@@ -57,61 +90,101 @@ export function MyProductsList({ products, userId }: { products: any[]; userId: 
 
   return (
     <div className="space-y-4">
-      {products.map((p) => (
-        <div
-          key={p.id}
-          className="group bg-gray-50/50 dark:bg-gray-800/30 rounded-3xl p-6 flex flex-col md:flex-row justify-between items-center border border-transparent hover:border-blue-500/20 hover:bg-white dark:hover:bg-gray-800 transition-all shadow-sm hover:shadow-xl"
-        >
-          <div className="flex flex-col items-center md:items-start mb-4 md:mb-0">
-            <p className="text-lg font-black text-gray-900 dark:text-white tracking-tight">{p.title}</p>
-            <p className="text-blue-600 font-black text-sm">₹ {p.price.toLocaleString()}</p>
-          </div>
+      {products.map((p) => {
+        const isSold = p.status === "sold";
+        const isExpired = p.status === "expired" || (p.expires_at && new Date(p.expires_at).getTime() < Date.now());
 
-          <div className="flex items-center gap-3">
-            {/* Chat button */}
-            <button
-              onClick={() => router.push(`/chat?productId=${p.id}`)}
-              className="p-3 bg-white dark:bg-gray-900 rounded-xl text-blue-600 shadow-sm relative"
-            >
-              <MessageSquare size={18} />
-              {chatCounts[p.id] > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-600 w-4 h-4 rounded-full text-[10px] text-white flex items-center justify-center font-bold animate-pulse">
-                  {chatCounts[p.id]}
-                </span>
+        return (
+          <div
+            key={p.id}
+            className={`group rounded-3xl p-6 flex flex-col md:flex-row justify-between items-center border transition-all shadow-sm ${
+              isSold || isExpired
+                ? "bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800 opacity-80"
+                : "bg-gray-50/50 dark:bg-gray-800/30 border-transparent hover:border-blue-500/20 hover:bg-white dark:hover:bg-gray-800 hover:shadow-xl"
+            }`}
+          >
+            <div className="flex flex-col items-center md:items-start mb-4 md:mb-0">
+              <div className="flex items-center gap-3">
+                <p className={`text-lg font-black tracking-tight ${isSold || isExpired ? "text-gray-500 line-through decoration-2" : "text-gray-900 dark:text-white"}`}>
+                  {p.title}
+                </p>
+                {/* Status Badges */}
+                {isSold && (
+                  <span className="bg-red-500 text-white text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider">Sold Out</span>
+                )}
+                {isExpired && !isSold && (
+                  <span className="bg-gray-500 text-white text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider">Expired</span>
+                )}
+              </div>
+              <p className={`font-black text-sm mt-1 ${isSold || isExpired ? "text-gray-400" : "text-blue-600"}`}>
+                ₹ {p.price?.toLocaleString("en-IN")}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Chat button */}
+              <button
+                onClick={() => router.push(`/chat?productId=${p.id}`)}
+                className="p-3 bg-white dark:bg-gray-900 rounded-xl text-blue-600 shadow-sm relative transition-colors"
+              >
+                <MessageSquare size={18} />
+                {chatCounts[p.id] > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-600 w-4 h-4 rounded-full text-[10px] text-white flex items-center justify-center font-bold animate-pulse">
+                    {chatCounts[p.id]}
+                  </span>
+                )}
+              </button>
+
+              {/* View button */}
+              <button
+                onClick={() => router.push(`/products/${p.id}`)}
+                className="p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl text-gray-500 transition-colors"
+              >
+                <ExternalLink size={18} />
+              </button>
+
+              {/* Mark as Sold button (Hide if already sold or expired) */}
+              {!(isSold || isExpired) && (
+                <button
+                  onClick={() => markAsSold(p.id)}
+                  disabled={loadingId === `sold-${p.id}`}
+                  title="Mark as Sold"
+                  className="p-3 hover:bg-green-50 dark:hover:bg-green-500/10 rounded-xl text-green-500 transition-colors disabled:opacity-30"
+                >
+                  {loadingId === `sold-${p.id}` ? (
+                    <span className="w-[18px] h-[18px] border-2 border-green-500 border-t-transparent rounded-full animate-spin block" />
+                  ) : (
+                    <CheckCircle size={18} />
+                  )}
+                </button>
               )}
-            </button>
 
-            {/* View button */}
-            <button
-              onClick={() => router.push(`/products/${p.id}`)}
-              className="p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl text-gray-500 transition-colors"
-            >
-              <ExternalLink size={18} />
-            </button>
-
-            {/* Edit button */}
-            <button
-              onClick={() => router.push(`/sell/edit/${p.id}`)}
-              className="p-3 hover:bg-green-50 dark:hover:bg-green-500/10 rounded-xl text-green-600 transition-colors"
-            >
-              <Edit3 size={18} />
-            </button>
-
-            {/* ✅ Delete — API route se */}
-            <button
-              onClick={() => deleteProduct(p)}
-              disabled={loadingId === p.id}
-              className="p-3 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl text-red-500 transition-colors disabled:opacity-30"
-            >
-              {loadingId === p.id ? (
-                <span className="w-[18px] h-[18px] border-2 border-red-500 border-t-transparent rounded-full animate-spin block" />
-              ) : (
-                <Trash2 size={18} />
+              {/* Edit button (Hide if sold or expired) */}
+              {!(isSold || isExpired) && (
+                <button
+                  onClick={() => router.push(`/sell/edit/${p.id}`)}
+                  className="p-3 hover:bg-orange-50 dark:hover:bg-orange-500/10 rounded-xl text-orange-500 transition-colors"
+                >
+                  <Edit3 size={18} />
+                </button>
               )}
-            </button>
+
+              {/* Delete button (Hamesha dikhega) */}
+              <button
+                onClick={() => deleteProduct(p)}
+                disabled={loadingId === p.id}
+                className="p-3 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl text-red-500 transition-colors disabled:opacity-30"
+              >
+                {loadingId === p.id ? (
+                  <span className="w-[18px] h-[18px] border-2 border-red-500 border-t-transparent rounded-full animate-spin block" />
+                ) : (
+                  <Trash2 size={18} />
+                )}
+              </button>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
