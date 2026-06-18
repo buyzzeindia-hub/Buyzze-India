@@ -16,71 +16,79 @@ import Link from "next/link";
 export default function DashboardPage() {
   const router = useRouter();
   
-  const { user, isLoaded } = useBuyzzeAuth();
+  // Ab Unified Auth se stable user object mil raha hai
+  const { user, isLoaded, logout } = useBuyzzeAuth();
   const { signOut } = useClerk();
   
-  const [localUserId, setLocalUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [totalProducts, setTotalProducts] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Unified ID Syncing
-  useEffect(() => {
-    if (user?.id) {
-      setLocalUserId(user.id);
-    } else if (typeof window !== "undefined") {
-      const isLogged = localStorage.getItem("buyzze_logged_in") === "true";
-      if (isLogged) {
-        let fastId = localStorage.getItem("buyzze_fast_id");
-        if (!fastId) {
-          fastId = "fast_user_" + Math.random().toString(36).substr(2, 10);
-          localStorage.setItem("buyzze_fast_id", fastId);
-        }
-        setLocalUserId(fastId);
-      }
-    }
-  }, [user]);
-
-  // Auth Guard & Data Init Loop
+  // Auth Guard & Data Init (Clean & Direct)
   useEffect(() => {
     if (!isLoaded) return;
 
-    const isLoggedLocal = typeof window !== "undefined" && localStorage.getItem("buyzze_logged_in") === "true";
-
-    if (!user && !isLoggedLocal) {
+    if (!user) {
       router.replace("/login");
       return;
     }
 
-    if (localUserId) {
-      initData(localUserId);
-    }
-  }, [isLoaded, user, router, localUserId]);
+    initData(user.id);
+  }, [isLoaded, user, router]);
 
   async function initData(uid: string) {
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", uid)
-      .single();
+    try {
+      // 1. Fetch Profile
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", uid)
+        .maybeSingle();
 
-    if (profileData) setProfile(profileData);
+      if (profileData) setProfile(profileData);
 
-    const dashboard = await getDashboardData(uid);
-    setProducts(dashboard.products);
-    setTotalProducts(dashboard.totalProducts);
-    setLoading(false);
+      // 2. Fetch Dashboard Data
+      const dashboard = await getDashboardData(uid);
+      let finalProducts = dashboard?.products || [];
+      let finalTotal = dashboard?.totalProducts || 0;
+
+      // 🔥 DIRECT SUPABASE FALLBACK: Agar service fail ho jaye ya products 0 return kare,
+      // par Supabase me data ho, toh ye seedha wahan se fetch kar lega.
+      if (finalProducts.length === 0) {
+        const { data: directProducts } = await supabase
+          .from("products")
+          .select("*")
+          .or(`owner_id.eq.${uid},user_id.eq.${uid}`) // Safe check for both column names
+          .order("created_at", { ascending: false });
+
+        if (directProducts && directProducts.length > 0) {
+          finalProducts = directProducts;
+          finalTotal = directProducts.length;
+        }
+      }
+
+      setProducts(finalProducts);
+      setTotalProducts(finalTotal);
+    } catch (error) {
+      console.error("Dashboard Init Error:", error);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const handleLogout = async () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("buyzze_logged_in");
-      localStorage.removeItem("buyzze_fast_id");
-      document.cookie = "buyzze_fast_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    if (logout) {
+      await logout(); // Using unified logout from hook
+    } else {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("buyzze_logged_in");
+        localStorage.removeItem("buyzze_fast_id");
+        document.cookie = "buyzze_fast_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      }
+      await signOut();
+      router.push("/login");
     }
-    await signOut();
-    router.push("/login");
   };
 
   if (!isLoaded || loading) return (
@@ -120,7 +128,7 @@ export default function DashboardPage() {
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-              Welcome back, {profile?.full_name?.split(" ")[0] || user?.firstName || "Merchant"}
+              Welcome back, {profile?.full_name?.split(" ")[0] || user?.full_name?.split(" ")[0] || "Merchant"}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               Here's an overview of your marketplace activity today.
@@ -162,7 +170,8 @@ export default function DashboardPage() {
                 <h3 className="text-base font-semibold tracking-tight">Active Listings</h3>
               </div>
               <div className="p-6">
-                {localUserId && <MyProductsList products={products} userId={localUserId} />}
+                {/* 🔴 Direct user.id pass kar rahe hain */}
+                {user && <MyProductsList products={products} userId={user.id} />}
               </div>
             </motion.div>
           </div>

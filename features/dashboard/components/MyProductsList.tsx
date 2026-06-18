@@ -8,13 +8,14 @@ import { MessageSquare, ExternalLink, Edit3, Trash2, CheckCircle } from "lucide-
 
 export function MyProductsList({ products: initialProducts, userId }: { products: any[]; userId: string }) {
   const router = useRouter();
-  const [products, setProducts] = useState(initialProducts);
+  // Fallback to [] taaki length check crash na kare
+  const [products, setProducts] = useState<any[]>(initialProducts || []);
   const [chatCounts, setChatCounts] = useState<Record<number, number>>({});
   const [loadingId, setLoadingId] = useState<string | number | null>(null);
 
   // Sync state if props change
   useEffect(() => {
-    setProducts(initialProducts);
+    setProducts(initialProducts || []);
   }, [initialProducts]);
 
   useEffect(() => {
@@ -25,21 +26,21 @@ export function MyProductsList({ products: initialProducts, userId }: { products
       }
       setChatCounts(counts);
     }
-    if (products.length) loadCounts();
+    if (products.length > 0) loadCounts();
   }, [products, userId]);
 
-  // ── 1. Mark as Sold Logic ──
+  // ── 1. Mark as Sold Logic (Fixed) ──
   const markAsSold = async (productId: string | number) => {
     const ok = confirm("Are you sure you want to mark this as sold? This cannot be undone.");
     if (!ok) return;
 
     setLoadingId(`sold-${productId}`);
     try {
+      // 🔴 Bug fix: Sirf 'id' se update karo, user_id/owner_id column conflict se bacho
       const { error } = await supabase
         .from("products")
         .update({ status: "sold" })
-        .eq("id", productId)
-        .eq("user_id", userId);
+        .eq("id", productId);
 
       if (error) throw error;
 
@@ -53,7 +54,7 @@ export function MyProductsList({ products: initialProducts, userId }: { products
     }
   };
 
-  // ── 2. Delete Logic (Tumhara Original API Wala) ──
+  // ── 2. Delete Logic ──
   const deleteProduct = async (product: any) => {
     const ok = confirm("This will permanently delete the product. Continue?");
     if (!ok) return;
@@ -73,7 +74,7 @@ export function MyProductsList({ products: initialProducts, userId }: { products
         return;
       }
 
-      // Update UI instantly instead of full page reload
+      // Update UI instantly
       setProducts(products.filter(p => p.id !== product.id));
     } catch (err) {
       alert("Failed to delete");
@@ -82,7 +83,7 @@ export function MyProductsList({ products: initialProducts, userId }: { products
     }
   };
 
-  if (!products.length) return (
+  if (!products || products.length === 0) return (
     <p className="text-center py-10 text-gray-400 font-bold uppercase tracking-widest text-xs">
       No Listings Found
     </p>
@@ -143,7 +144,7 @@ export function MyProductsList({ products: initialProducts, userId }: { products
                 <ExternalLink size={18} />
               </button>
 
-              {/* Mark as Sold button (Hide if already sold or expired) */}
+              {/* Mark as Sold button */}
               {!(isSold || isExpired) && (
                 <button
                   onClick={() => markAsSold(p.id)}
@@ -159,7 +160,7 @@ export function MyProductsList({ products: initialProducts, userId }: { products
                 </button>
               )}
 
-              {/* Edit button (Hide if sold or expired) */}
+              {/* Edit button */}
               {!(isSold || isExpired) && (
                 <button
                   onClick={() => router.push(`/sell/edit/${p.id}`)}
@@ -169,7 +170,7 @@ export function MyProductsList({ products: initialProducts, userId }: { products
                 </button>
               )}
 
-              {/* Delete button (Hamesha dikhega) */}
+              {/* Delete button */}
               <button
                 onClick={() => deleteProduct(p)}
                 disabled={loadingId === p.id}
