@@ -35,7 +35,6 @@ export default function DashboardPage() {
 
   async function initData(uid: string) {
     try {
-      // 1. Fetch Profile Info
       const { data: profileData } = await supabase
         .from("profiles")
         .select("full_name")
@@ -44,18 +43,31 @@ export default function DashboardPage() {
 
       if (profileData) setProfile(profileData);
 
-      // 2. 🔴 DIRECT SUPABASE FETCH FOR ALL PRODUCTS (No hidden limits!)
-      const { data: directProducts, error: prodErr } = await supabase
-        .from("products")
-        .select("*")
-        .or(`owner_id.eq.${uid},user_id.eq.${uid}`) // Safe for both column names
-        .order("created_at", { ascending: false });
+      const dashboard = await getDashboardData(uid);
+      let finalProducts = dashboard?.products || [];
 
-      if (!prodErr && directProducts) {
-        setProducts(directProducts);
-        setTotalProducts(directProducts.length); // Exact count from DB
+      // 🔴 FAIL-SAFE PRODUCT FETCH: Bina error ke saari list layega
+      if (finalProducts.length === 0) {
+        let { data: prodOwner, error: errOwner } = await supabase
+          .from("products")
+          .select("*")
+          .eq("owner_id", uid)
+          .order("created_at", { ascending: false });
+
+        if (errOwner) {
+          let { data: prodUser } = await supabase
+            .from("products")
+            .select("*")
+            .eq("user_id", uid)
+            .order("created_at", { ascending: false });
+          finalProducts = prodUser || [];
+        } else {
+          finalProducts = prodOwner || [];
+        }
       }
 
+      setProducts(finalProducts);
+      setTotalProducts(finalProducts.length);
     } catch (error) {
       console.error("Dashboard Init Error:", error);
     } finally {
@@ -109,7 +121,7 @@ export default function DashboardPage() {
               Welcome back, {profile?.full_name?.split(" ")[0] || user?.full_name?.split(" ")[0] || "Merchant"}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Here's an overview of your marketplace activity.
+              Here's an overview of your marketplace activity today.
             </p>
           </motion.div>
           

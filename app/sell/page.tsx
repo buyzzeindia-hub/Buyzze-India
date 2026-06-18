@@ -32,14 +32,13 @@ export default function SellPage() {
     }
   }, [user, isLoaded, router]);
 
-  // ── 2. Strict Verification & Limit Checks ──
+  // ── 2. Strict Verification & Bulletproof Limit Checks ──
   useEffect(() => {
     if (!localUserId) return; 
 
     const checkUserStatus = async () => {
       setIsChecking(true);
       try {
-        // Strict Database Check for Verification
         const { data: profile } = await supabase
           .from("profiles")
           .select("is_phone_verified")
@@ -49,18 +48,30 @@ export default function SellPage() {
         const verified = profile?.is_phone_verified === true;
         setIsVerified(verified);
 
-        // Check Weekly Limit (Only if verified)
         if (verified) {
           const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
           
-          // 🔴 Safe DB Count: handles both user_id or owner_id
-          const { count } = await supabase
+          // 🔴 FAIL-SAFE LIMIT CHECK: Pehle owner_id try karo, agar column na ho toh user_id try karo
+          let exactCount = 0;
+          let { count: countOwner, error: errOwner } = await supabase
             .from("products")
             .select("*", { count: "exact", head: true })
-            .or(`user_id.eq.${localUserId},owner_id.eq.${localUserId}`)
+            .eq("owner_id", localUserId)
             .gte("created_at", sevenDaysAgo);
 
-          if (count !== null && count >= 2) {
+          if (errOwner) {
+            let { count: countUser } = await supabase
+              .from("products")
+              .select("*", { count: "exact", head: true })
+              .eq("user_id", localUserId)
+              .gte("created_at", sevenDaysAgo);
+            exactCount = countUser || 0;
+          } else {
+            exactCount = countOwner || 0;
+          }
+
+          // Agar 2 ya usse zyada listing ho gayi hai is week, block!
+          if (exactCount >= 2) {
             setLimitExceeded(true);
           }
         }
@@ -81,28 +92,34 @@ export default function SellPage() {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
     
-    const res = await fetch("/api/products/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...data,
-        user_id: localUserId,
-        expires_at: expiresAt.toISOString(),
-      }),
-    });
+    try {
+      const res = await fetch("/api/products/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...data,
+          user_id: localUserId, // Tumhari API yahi use karti hai
+          expires_at: expiresAt.toISOString(),
+        }),
+      });
 
-    const result = await res.json();
-    if (!res.ok) throw new Error(result.error || "Failed to save listing");
-
-    setIsProcessing(false);
-    router.push("/dashboard");
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to save listing");
+      
+      router.push("/dashboard");
+    } catch(err) {
+      console.error(err);
+      alert("Error saving product!");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // ── UI: Loading State ──
   if (!isLoaded || isChecking || !localUserId) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#0a0a0a]">
-         <div className="text-sm font-medium text-gray-400 animate-pulse tracking-wide">Loading...</div>
+         <div className="text-sm font-medium text-gray-400 animate-pulse tracking-wide">Checking your account limits...</div>
       </div>
     );
   }
@@ -125,34 +142,28 @@ export default function SellPage() {
             >
                Go to Profile
             </button>
-            <button 
-              onClick={() => router.push('/')} 
-              className="mt-4 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-            >
-               Cancel
-            </button>
          </div>
       </div>
     )
   }
 
-  // ── UI: Limit Exceeded ──
+  // ── UI: Limit Exceeded (Popup Logic Working Here!) ──
   if (limitExceeded) {
      return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#0a0a0a] p-4">
-         <div className="max-w-sm w-full bg-white dark:bg-[#121212] p-8 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 text-center">
-            <div className="mb-5 text-gray-400 dark:text-gray-500 flex justify-center">
-               <Lock className="w-6 h-6" strokeWidth={1.5} />
+         <div className="max-w-sm w-full bg-white dark:bg-[#121212] p-8 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 text-center transform transition-all">
+            <div className="mb-5 text-red-500 bg-red-50 dark:bg-red-500/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
+               <Lock className="w-7 h-7" strokeWidth={2} />
             </div>
-            <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2 tracking-tight">Limit Reached</h2>
+            <h2 className="text-xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">Weekly Limit Reached</h2>
             <p className="text-gray-500 dark:text-gray-400 mb-8 text-sm leading-relaxed">
-              You have used your 2 free listings for this week. Please wait a few days to list a new device.
+              You have already listed <strong>2 devices</strong> in the last 7 days. Please wait a few days to list a new device.
             </p>
             <button 
               onClick={() => router.push('/dashboard')} 
-              className="w-full py-2.5 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-xl transition-colors"
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors shadow-md shadow-blue-500/20"
             >
-               Return to Dashboard
+               Go to Dashboard
             </button>
          </div>
       </div>
@@ -163,20 +174,17 @@ export default function SellPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] text-neutral-900 dark:text-white pb-20 pt-6 md:pt-10">
       <div className="w-full px-4 md:px-8">
-        
         {isProcessing && (
           <div className="max-w-[90rem] mx-auto mb-6 p-4 bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 rounded-2xl text-center font-medium animate-pulse tracking-wide text-sm">
             Processing & Optimizing Assets...
           </div>
         )}
-
         <div className={isProcessing ? "opacity-40 pointer-events-none transition-opacity duration-300" : "opacity-100 transition-opacity duration-300"}>
           <ProductForm
             onSubmit={submit}
             onComplete={() => router.push("/dashboard")}
           />
         </div>
-        
       </div>
     </div>
   );
