@@ -9,115 +9,106 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    console.log("📥 Truecaller Raw Webhook Payload:", body);
 
-    // 🔥 FIX: Agar Truecaller sirf "flow_invoked" ya koi aur status bhej raha hai bina token ke, toh use ignore karo
     if (body.status && !body.accessToken) {
-      console.log(`ℹ️ Ignoring intermediate Truecaller status: ${body.status}`);
       return NextResponse.json({ status: "IGNORED" });
     }
 
     const requestId = body.requestId || body.state;
-    if (!requestId) {
-      return NextResponse.json({ error: "Missing requestId" }, { status: 400 });
-    }
+    if (!requestId) return NextResponse.json({ error: "Missing requestId" }, { status: 400 });
 
     let phoneNumber = "";
     let firstName = "";
     let lastName = "";
     let actualEmail = "";
 
-    // TRUECALLER PRODUCTION PAYLOAD DECODING
     if (body.endpoint && body.accessToken) {
-      console.log("🔄 Fetching user profile from Truecaller secure server...");
-      
       const profileRes = await fetch(body.endpoint, {
         method: "GET",
-        headers: {
-          "Authorization": `Bearer ${body.accessToken}`,
-          "Cache-Control": "no-cache"
-        }
+        headers: { "Authorization": `Bearer ${body.accessToken}`, "Cache-Control": "no-cache" }
       });
 
       if (profileRes.ok) {
         const profileData = await profileRes.json();
-        console.log("👤 Decoded Truecaller Profile:", profileData);
-        
         const rawPhone = profileData.phoneNumbers?.[0]?.toString() || "";
-        if (rawPhone) {
-          phoneNumber = rawPhone.startsWith("+") ? rawPhone : "+" + rawPhone;
-        }
-        
+        if (rawPhone) phoneNumber = rawPhone.startsWith("+") ? rawPhone : "+" + rawPhone;
         firstName = profileData.name?.first || "";
         lastName = profileData.name?.last || "";
         actualEmail = profileData.onlineIdentities?.email || "";
       } else {
-        console.error("❌ Failed to fetch from Truecaller endpoint");
         return NextResponse.json({ error: "Truecaller token verification failed" }, { status: 400 });
       }
     }
 
-    // Final Validation check
-    if (!phoneNumber) {
-      return NextResponse.json({ error: "Phone number could not be retrieved" }, { status: 400 });
-    }
+    if (!phoneNumber) return NextResponse.json({ error: "Phone missing" }, { status: 400 });
 
     const fullName = `${firstName} ${lastName}`.trim() || "Truecaller User";
 
-    const { data: authRequest, error: reqError } = await supabaseAdmin
+    const { data: authRequest } = await supabaseAdmin
       .from("auth_requests")
       .select("*")
       .eq("id", requestId)
       .eq("status", "pending")
       .single();
 
-    if (reqError || !authRequest) {
-      return NextResponse.json({ error: "Invalid or expired request ID" }, { status: 400 });
+    if (!authRequest) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+
+    let existingProfile = null;
+
+    // 🔥 SMART CHECK 1: Pehle Email se dhoondho (Agar user ne pehle Google se login kiya ho)
+    if (actualEmail) {
+      const { data: emailMatch } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .eq("email", actualEmail)
+        .order("created_at", { ascending: true })
+        .limit(1);
+      existingProfile = emailMatch?.[0];
     }
 
-    let { data: existingProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("id")
-      .eq("verified_phone", phoneNumber)
-      .single();
+    // 🔥 SMART CHECK 2: Agar Email se na mile, toh Phone Number se dhoondho
+    if (!existingProfile) {
+      const { data: phoneMatch } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .eq("verified_phone", phoneNumber)
+        .order("created_at", { ascending: true })
+        .limit(1);
+      existingProfile = phoneMatch?.[0];
+    }
 
     let userId = existingProfile?.id;
 
     if (!existingProfile) {
+      // Dono se nahi mila? Tabhi naya account banao
       userId = `tc_${uuidv4()}`;
       const cleanPhone = phoneNumber.replace("+", "");
       const finalEmail = actualEmail || `${cleanPhone}@ghost.buyzze.com`;
 
-      const { error: insertError } = await supabaseAdmin
-        .from("profiles")
-        .insert([{
-          id: userId,
-          full_name: fullName,
-          email: finalEmail,
-          is_phone_verified: true,
-          verified_phone: phoneNumber,
-          verified_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }]);
-
-      if (insertError) throw insertError;
+      await supabaseAdmin.from("profiles").insert([{
+        id: userId,
+        full_name: fullName,
+        email: finalEmail,
+        is_phone_verified: true,
+        verified_phone: phoneNumber,
+        verified_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      }]);
+    } else {
+      // ✅ ACCOUNT MIL GAYA: Purane account mein phone number update (link) kar do
+      await supabaseAdmin.from("profiles").update({
+        verified_phone: phoneNumber,
+        is_phone_verified: true,
+        verified_at: new Date().toISOString()
+      }).eq("id", userId);
     }
 
-    const { error: updateError } = await supabaseAdmin
-      .from("auth_requests")
-      .update({ 
-        status: "verified",
-        user_id: userId
-      })
-      .eq("id", requestId);
-
-    if (updateError) throw updateError;
+    await supabaseAdmin.from("auth_requests").update({ status: "verified", user_id: userId }).eq("id", requestId);
 
     return NextResponse.json({ status: "SUCCESS" });
 
   } catch (error: any) {
-    console.error("Callback Webhook Runtime Exception:", error);
+    console.error(error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
