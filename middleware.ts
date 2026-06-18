@@ -19,8 +19,10 @@ const isAuthRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth();
 
-  // 1. Check karo kya user ke paas Fast Auth (Google/Truecaller) ki cookie hai?
-  const hasFastAuth = req.cookies.has("buyzze_fast_session");
+  // 🔥 FIX 1: Sirf 'has()' mat check karo, cookie ki ACTUAL VALUE check karo.
+  // Agar cookie delete ho chuki hai (empty hai), toh false return hoga.
+  const fastAuthCookie = req.cookies.get("buyzze_fast_session")?.value;
+  const hasFastAuth = !!fastAuthCookie && fastAuthCookie.trim().length > 0;
 
   // 2. Agar dono me se kisi ek se bhi login hai, toh user authenticated hai
   const isUserLoggedIn = !!userId || hasFastAuth;
@@ -40,7 +42,7 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    // ✅ API routes INCLUDE karo — auth() kaam kare API routes pe
+    // API routes INCLUDE karo — auth() kaam kare API routes pe
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|lottie)).*)",
   ],
 };

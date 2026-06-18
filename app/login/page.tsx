@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { DotLottiePlayer } from "@dotlottie/react-player";
 import "@dotlottie/react-player/dist/index.css";
 import { Loader2 } from "lucide-react";
-import Script from "next/script"; // ✅ Added for Google One-Tap Client Script loading
+import Script from "next/script";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -20,7 +20,6 @@ export default function LoginPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
-  // ── ✅ POPUP FILE AUTH STATES INTEGRATION ──
   const [mounted, setMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [fastLoading, setFastLoading] = useState(false);
@@ -74,7 +73,7 @@ export default function LoginPage() {
       
       if (res.ok) {
         localStorage.setItem("buyzze_logged_in", "true");
-        window.location.href = "/"; 
+        window.location.href = "/profile"; 
       }
     } catch (error) {
       console.error("Google Error:", error);
@@ -112,7 +111,7 @@ export default function LoginPage() {
         if (pollData.status === "verified") {
           clearInterval(pollInterval);
           localStorage.setItem("buyzze_logged_in", "true");
-          window.location.href = "/";
+          window.location.href = "/profile";
           return;
         }
 
@@ -129,13 +128,13 @@ export default function LoginPage() {
     }
   };
 
-  // ── Clerk Email Login Handler ──
   const handleLogin = async () => {
     if (!isLoaded) return;
     setLoading(true);
     setError("");
 
     try {
+      // ✅ Yahan se 'border: "none"' hata diya gaya hai
       const result = await signIn!.create({
         identifier: email,
         password,
@@ -143,9 +142,10 @@ export default function LoginPage() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
+        localStorage.setItem("buyzze_logged_in", "true");
         setSuccess(true);
         setTimeout(() => { 
-          window.location.href = "/"; 
+          window.location.href = "/profile"; 
         }, 2000);
       } else {
         setError("Login incomplete. Please try again.");
@@ -161,15 +161,13 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 flex flex-col lg:flex-row overflow-hidden font-sans">
-      
-      {/* Google GSI Client Script Injection */}
       <Script 
         src="https://accounts.google.com/gsi/client" 
         strategy="afterInteractive" 
         onLoad={initGoogleSignIn} 
       />
 
-      {/* Left Side */}
+      {/* Left Area */}
       <motion.div
         initial={{ x: -50, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
@@ -188,11 +186,9 @@ export default function LoginPage() {
         </div>
       </motion.div>
 
-      {/* Right Side */}
+      {/* Right Area */}
       <div className="lg:w-1/2 flex items-center justify-center p-8 md:p-16 bg-white dark:bg-gray-900">
         <AnimatePresence mode="wait">
-
-          {/* SUCCESS */}
           {success && (
             <motion.div key="success" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               className="fixed inset-0 z-[100] bg-white dark:bg-[#05080d] flex flex-col items-center justify-center"
@@ -208,29 +204,27 @@ export default function LoginPage() {
             </motion.div>
           )}
 
-          {/* LOGIN FORM */}
           {!success && (
             <motion.div key="login" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               className="w-full max-w-md"
             >
               <div className="mb-10">
-                <h1 className="text-5xl font-black text-gray-900 dark:text-white tracking-tight leading-none mb-2">
-                  Welcome<br />Back
+                <h1 className="text-4xl font-bold text-gray-900 dark:text-white tracking-tight leading-none mb-2">
+                  Welcome Back
                 </h1>
-                <p className="text-blue-600 text-[10px] font-black uppercase tracking-[0.3em] mt-3">
-                  Sign in to BuYzze
+                <p className="text-gray-400 text-xs mt-2">
+                  Sign in to your account to continue
                 </p>
               </div>
 
               <AnimatePresence>
                 {error && (
                   <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className="mb-6 p-4 bg-red-50 dark:bg-red-900/10 text-red-600 text-xs font-bold uppercase rounded-2xl border border-red-100 text-center"
+                    className="mb-6 p-3 bg-red-50 dark:bg-red-900/10 text-red-600 text-xs font-semibold rounded-xl border border-red-100 text-center"
                   >{error}</motion.div>
                 )}
               </AnimatePresence>
 
-              {/* ── ✅ EXACT POPUP OPTION BUTTONS CONTAINER ── */}
               <div className="flex flex-col items-center gap-3 w-full mb-6">
                 {isMobile && (
                   <button
@@ -249,12 +243,7 @@ export default function LoginPage() {
                   </button>
                 )}
 
-                {/* Google Injection Anchor Target Div */}
-                <div 
-                  ref={googleBtnRef} 
-                  id="google-btn-container" 
-                  className="w-full flex justify-center min-h-[40px]"
-                ></div>
+                <div ref={googleBtnRef} id="google-btn-container" className="w-full flex justify-center min-h-[40px]"></div>
                 
                 {pollingStatus && !fastLoading && (
                   <p className="text-[12px] font-medium text-blue-500 mt-1 animate-pulse">
@@ -263,58 +252,54 @@ export default function LoginPage() {
                 )}
               </div>
 
-              {/* Divider layout grid line */}
               <div className="flex items-center gap-4 mb-6">
                 <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800"></div>
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">Or login with email</span>
+                <span className="text-[10px] font-medium text-gray-400 uppercase tracking-widest whitespace-nowrap">Or login with email</span>
                 <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800"></div>
               </div>
 
-              <div className="space-y-5">
-                {/* Email */}
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">Email</label>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-gray-500 ml-1">Email</label>
                   <input
                     type="email"
                     placeholder="your@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                    className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 outline-none text-sm font-semibold text-gray-900 dark:text-white transition-all"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 outline-none text-sm font-medium text-gray-900 dark:text-white transition-all"
                   />
                 </div>
 
-                {/* Password */}
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">Password</label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-gray-500 ml-1">Password</label>
                   <input
                     type="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                    className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 outline-none text-sm font-semibold text-gray-900 dark:text-white transition-all"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-blue-500 outline-none text-sm font-medium text-gray-900 dark:text-white transition-all"
                   />
                 </div>
 
                 <button
                   onClick={handleLogin}
                   disabled={loading || !email || !password}
-                  className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-black text-xs tracking-[0.2em] uppercase shadow-xl shadow-blue-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
                 >
-                  {loading ? <><Loader2 className="animate-spin" size={18} /> Signing In...</> : "Enter Account →"}
+                  {loading ? <><Loader2 className="animate-spin" size={16} /> Signing In...</> : "Sign In"}
                 </button>
               </div>
 
-              <div className="mt-10 text-center pt-8 border-t border-gray-100 dark:border-gray-800">
-                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">
-                  New User?{" "}
-                  <Link href="/signup" className="text-blue-600 font-black hover:underline">Create Account</Link>
+              <div className="mt-8 text-center pt-6 border-t border-gray-100 dark:border-gray-800">
+                <p className="text-xs text-gray-400 font-medium">
+                  Don't have an account?{" "}
+                  <Link href="/signup" className="text-blue-600 font-semibold hover:underline">Create Account</Link>
                 </p>
               </div>
             </motion.div>
           )}
-
         </AnimatePresence>
       </div>
     </div>

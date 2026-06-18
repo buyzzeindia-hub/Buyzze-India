@@ -8,6 +8,10 @@ import { SellerMiniCard } from "@/features/sellers/components/SellerMiniCard";
 import { SimilarProducts } from "./SimilarProducts";
 import { motion, AnimatePresence } from "framer-motion";
 import { useBuyzzeAuth } from "@/hooks/useBuyzzeAuth";
+// ✅ 1. Supabase aur PhoneVerification Import kiya
+import { supabase } from "@/lib/supabaseClient";
+import { PhoneVerification } from "@/components/PhoneVerification";
+
 import {
   Heart, MessageCircle, Share2, MapPin,
   ShieldCheck, ChevronLeft, ChevronRight,
@@ -169,6 +173,9 @@ export function ProductDetail({ product, userId: serverUserId }: { product: any;
   const [isFav, setIsFav] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
   const [showReview, setShowReview] = useState(false);
+  // ✅ 2. Verification modal trigger karne ka state
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+
   const [reviews, setReviews] = useState<any[]>([]);
   const [avgRating, setAvgRating] = useState(0);
   const [totalReviews, setTotalReviews] = useState(0);
@@ -229,11 +236,28 @@ export function ProductDetail({ product, userId: serverUserId }: { product: any;
     try { await navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
   };
 
+  // ✅ 3. Chat shuru karne se pehle Verification check karna
   const startChat = async () => {
     if (!localUserId) { router.push("/login"); return; }
     if (isOwner) return;
+    
     setChatLoading(true);
     try {
+      // Pehle verify check karo ki user ka number verified hai ya nahi
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("is_phone_verified")
+        .eq("id", localUserId)
+        .single();
+
+      if (!profileData?.is_phone_verified) {
+        // Verified nahi hai toh modal open karo aur return ho jao
+        setShowVerifyModal(true);
+        setChatLoading(false);
+        return;
+      }
+
+      // Agar verified hai toh normal chat process aage badhao
       const chatId = `product_${product.id}_${product.owner_id}_${localUserId}`;
       const chatRef = ref(database, `chats/${chatId}`);
       const snap = await get(chatRef);
@@ -764,6 +788,15 @@ export function ProductDetail({ product, userId: serverUserId }: { product: any;
         )}
       </div>
       {/* ╚═══ END MOBILE ═══╝ */}
+
+      {/* ✅ 4. TRUECALLER VERIFICATION MODAL RENDER KARNA */}
+      {showVerifyModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="relative w-full max-w-md animate-in fade-in zoom-in duration-200">
+            <PhoneVerification onVerified={() => setShowVerifyModal(false)} />
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         .line-clamp-4 { display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden; }

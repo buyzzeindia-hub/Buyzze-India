@@ -2,7 +2,7 @@
 
 import { useUser as useClerkUser, useClerk } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
-import { getUser } from "@/lib/auth"; // Ye tumhari auth.ts file hai jo pichle step me update ki thi
+import { getUser } from "@/lib/auth"; 
 
 export function useBuyzzeAuth() {
   const { isLoaded: isClerkLoaded, user: clerkUser } = useClerkUser();
@@ -13,7 +13,6 @@ export function useBuyzzeAuth() {
   useEffect(() => {
     async function loadFastUser() {
       try {
-        // Direct Next.js Server Action call
         const data = await getUser();
         if (data && data.auth_source === 'fast_auth') {
           setFastUser(data);
@@ -29,7 +28,6 @@ export function useBuyzzeAuth() {
 
   const isLoaded = isClerkLoaded && isFastLoaded;
 
-  // Dono auth (Clerk + Fast) ka data ek single format mein merge kar rahe hain
   let mergedUser = null;
   if (clerkUser) {
     mergedUser = {
@@ -40,17 +38,29 @@ export function useBuyzzeAuth() {
       auth_source: "clerk"
     };
   } else if (fastUser) {
-    mergedUser = fastUser; // Google/Truecaller user from database
+    mergedUser = fastUser; 
   }
 
-  // Unified Logout function
+  // 🔥 FIX 2: Logout function ko completely sync aur bug-free kar diya
   const logout = async () => {
     try {
+      // 1. Server se cookie delete karo
       await fetch("/api/auth/logout", { method: "POST" });
-      if (clerkUser) await clerkSignOut();
+      
+      // 2. Client se localStorage turant clear karo taaki Header loop me na fase
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("buyzze_logged_in");
+        localStorage.removeItem("buyzze_fast_id");
+      }
+
+      // 3. Clerk ko strictly batao ki logout hoke kahan jana hai (No more 404 errors!)
+      if (clerkUser) {
+        await clerkSignOut({ redirectUrl: "/login" });
+      } else {
+        window.location.href = "/login";
+      }
     } catch (err) {
-      console.error(err);
-    } finally {
+      console.error("Logout Error:", err);
       window.location.href = "/login";
     }
   };

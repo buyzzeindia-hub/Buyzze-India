@@ -3,12 +3,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { useBuyzzeAuth } from "@/hooks/useBuyzzeAuth"; // Updated to use Unified Auth Hook
+import { useBuyzzeAuth } from "@/hooks/useBuyzzeAuth"; 
 import SearchBar from "./SearchBar";
 import { useLocation } from "@/features/location/context/LocationContext";
 import { MapPin, ChevronDown, Navigation, Search, X, Loader2, ChevronRight, Plus } from "lucide-react";
 
-// ── Types ─────────────────────────────────────────────────────
 type SearchEntry = [string, string, string, string, string];
 type TownList    = string[];
 type TownEntry   = [string, string, string, string, string, string];
@@ -20,7 +19,7 @@ function normalize(str: string): string {
 
 export default function Header() {
   const router = useRouter();
-  const { user, isLoaded } = useBuyzzeAuth(); // Connected to custom unified auth
+  const { user, isLoaded } = useBuyzzeAuth(); 
   const { selectedCity, setSelectedCity, detectLocation, setIsNearbyActive, locating } = useLocation();
 
   const [open, setOpen]                         = useState(false);
@@ -36,7 +35,17 @@ export default function Header() {
   const townCache                               = useRef<Record<string, TownList>>({});
   const dropRef                                 = useRef<HTMLDivElement>(null);
 
-  // ── Reset helper ───────────────────────────────────────────
+  // ── Hydration-Safe Local Storage Auth Sync ──
+  const [hasFastAuthToken, setHasFastAuthToken] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setHasFastAuthToken(localStorage.getItem("buyzze_logged_in") === "true");
+    }
+  }, [user]);
+
+  const isUserLoggedIn = user || hasFastAuthToken;
+
   const resetSearch = useCallback(() => {
     setLocInput("");
     setDistricts([]);
@@ -45,7 +54,6 @@ export default function Header() {
     setTowns([]);
   }, []);
 
-  // ── Close dropdown on outside click ───────────────────────
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
@@ -57,7 +65,6 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handler);
   }, [resetSearch]);
 
-  // ── Load indexes on mount ──────────────────────────────────
   useEffect(() => {
     fetch("/data/locations/search_index.json")
       .then(r => r.json())
@@ -69,7 +76,6 @@ export default function Header() {
       .catch(() => {});
   }, []);
 
-  // ── Instant search ─────────────────────────────────────────
   useEffect(() => {
     if (selectedDistrict) return;
     const q = normalize(locInput);
@@ -95,7 +101,6 @@ export default function Header() {
     return () => clearTimeout(t);
   }, [locInput, searchIndex, townIndex, selectedDistrict]);
 
-  // ── Lazy load towns for district ───────────────────────────
   const selectDistrict = useCallback(async (entry: SearchEntry) => {
     setSelectedDistrict(entry);
     setLoadingTowns(true);
@@ -118,7 +123,6 @@ export default function Header() {
     }
   }, []);
 
-  // ── Select town from district list ─────────────────────────
   const selectTown = useCallback((town: string | null) => {
     if (!selectedDistrict) return;
     const full = town && town !== selectedDistrict[1]
@@ -130,7 +134,6 @@ export default function Header() {
     resetSearch();
   }, [selectedDistrict, setSelectedCity, setIsNearbyActive, resetSearch]);
 
-  // ── Select town directly from search ──────────────────────
   const selectTownDirect = useCallback((entry: TownEntry) => {
     setSelectedCity(`${entry[1]}, ${entry[2]}, ${entry[3]}`);
     setIsNearbyActive(false);
@@ -146,13 +149,20 @@ export default function Header() {
 
   const cityLabel = selectedCity || "Set location";
 
+  // Avatar initial letter resolving safely
+  const getInitial = () => {
+    if (user?.email) return user.email.charAt(0).toUpperCase();
+    if (user?.full_name) return user.full_name.charAt(0).toUpperCase();
+    return "U";
+  };
+
   return (
     <>
       <header className="sticky top-0 z-[100] bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 h-16 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between gap-3">
 
           {/* Logo */}
-          <div onClick={() => router.push("/")} className="cursor-pointer shrink-0 flex items-center gap-2">
+          <Link href="/" className="cursor-pointer shrink-0 flex items-center gap-2">
             <div className="logo-bounce">
               <Image src="/logo.png" alt="Buyzze" width={38} height={38} priority style={{ borderRadius: 10 }} />
             </div>
@@ -171,7 +181,7 @@ export default function Header() {
               @keyframes locDrop{from{opacity:0;transform:translateY(-6px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
               .loc-dd:hover{background:rgba(0,0,0,0.04)}
             `}</style>
-          </div>
+          </Link>
 
           {/* Search bar */}
           <div className="flex-1 max-w-2xl">
@@ -211,7 +221,7 @@ export default function Header() {
                   className="absolute right-0 top-[calc(100%+12px)] w-[340px] bg-white dark:bg-[#0f172a] rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[200]"
                   style={{ animation: "locDrop 0.18s cubic-bezier(0.4,0,0.2,1)", maxHeight: 460, display: "flex", flexDirection: "column" }}
                 >
-                  {/* ── STEP 1 ── */}
+                  {/* STEP 1 */}
                   {!selectedDistrict && (
                     <>
                       {selectedCity && (
@@ -313,7 +323,7 @@ export default function Header() {
                     </>
                   )}
 
-                  {/* ── STEP 2 ── */}
+                  {/* STEP 2 */}
                   {selectedDistrict && (
                     <>
                       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-100 dark:border-gray-800">
@@ -375,45 +385,45 @@ export default function Header() {
               )}
             </div>
 
-            {/* Unified Auth Status Mapping */}
+            {/* ✅ STRICT PROFILE/LOGIN REPLACEMENT (PC) */}
             {!isLoaded ? (
               <div className="h-9 w-24 bg-gray-200 dark:bg-gray-800 animate-pulse rounded-lg" />
-            ) : user ? (
-              <button onClick={() => router.push("/profile")}
-                className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold border-2 border-white shadow-md">
-                {user.email?.charAt(0).toUpperCase() || "U"}
-              </button>
+            ) : isUserLoggedIn ? (
+              <Link href="/profile"
+                className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold border-2 border-white shadow-md hover:scale-105 transition-transform">
+                {getInitial()}
+              </Link>
             ) : (
-              <button onClick={() => router.push("/login")}
-                className="px-5 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 transition">
+              <a href="/login"
+                className="px-5 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 transition flex items-center justify-center">
                 Login
-              </button>
+              </a>
             )}
           </div>
 
-          {/* Mobile — Sell + Auth */}
+          {/* ✅ STRICT PROFILE/LOGIN REPLACEMENT (Mobile) */}
           <div className="flex md:hidden items-center gap-2 shrink-0">
             <Link href="/sell" className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-xl text-[12px] font-bold">
               <Plus size={13} />Sell
             </Link>
             {!isLoaded ? (
               <div className="h-8 w-8 bg-gray-200 dark:bg-gray-800 animate-pulse rounded-full" />
-            ) : user ? (
-              <button onClick={() => router.push("/profile")}
-                className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold border-2 border-white shadow-md">
-                {user.email?.charAt(0).toUpperCase() || "U"}
-              </button>
+            ) : isUserLoggedIn ? (
+              <Link href="/profile"
+                className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold border-2 border-white shadow-md hover:scale-105 transition-transform">
+                {getInitial()}
+              </Link>
             ) : (
-              <button onClick={() => router.push("/login")}
-                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-bold text-[12px]">
+              <a href="/login"
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-bold text-[12px] flex items-center justify-center">
                 Login
-              </button>
+              </a>
             )}
           </div>
         </div>
       </header>
 
-      {/* Mobile location bar */}
+      {/* Mobile location sub-bar */}
       <div
         className="md:hidden sticky top-16 z-[99] bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800"
         onClick={() => window.dispatchEvent(new CustomEvent("openLocationDrawer"))}

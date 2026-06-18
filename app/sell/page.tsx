@@ -119,7 +119,7 @@ export default function SellPage() {
               Please go to your profile and verify your phone number first to start selling.
             </p>
             <button 
-              onClick={() => router.push('/dashboard')} // Assuming verification is in dashboard/profile
+              onClick={() => router.push('/profile')} // Assuming verification is in dashboard/profile
               className="w-full py-2.5 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-xl transition-colors"
             >
                Go to Profile

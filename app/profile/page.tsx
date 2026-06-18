@@ -8,11 +8,12 @@ import { getDashboardData } from "@/features/dashboard/services/dashboard.servic
 import {
   LogOut, Package, Heart, MessageCircle, ShieldCheck,
   ChevronRight, Phone, Calendar, Mail, User,
-  ArrowUpRight, Plus, HelpCircle, Flag, ArrowLeft,
+  ArrowUpRight, Plus, HelpCircle, Flag, ArrowLeft, X
 } from "lucide-react";
 import { motion } from "framer-motion";
-// 🔥 Naya WhatsApp Popup Import kiya gaya hai
-import WhatsAppVerifyPopup from "@/components/auth/WhatsAppVerifyPopup";
+
+// 🔥 NAYA FIREBASE OTP IMPORT (WhatsApp hata diya)
+import { PhoneVerification } from "@/components/PhoneVerification";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { ref, onValue } from "firebase/database";
 import { database } from "@/lib/firebase";
@@ -81,7 +82,7 @@ export default function ProfilePage() {
     if (isLoaded && user) loadData();
   }, [user, isLoaded]);
 
-  // firebase unread (Chat unread notifications ke liye as-it-is rakha hai)
+  // firebase unread
   useEffect(() => {
     if (!user) return;
     const uid = user.id;
@@ -397,13 +398,27 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* 🔥 Yahan Purana Firebase OTP Wala Hata Kar Naya WhatsApp Popup Laga Diya */}
-        {user && (
-          <WhatsAppVerifyPopup
-            isOpen={showVerifyModal}
-            onClose={() => setShowVerifyModal(false)}
-            userId={user.id}
-          />
+        {/* 🔥 NAYA TRUECALLER VERIFICATION MODAL */}
+        {showVerifyModal && user && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
+            <div style={{ position: "relative", width: "100%", maxWidth: 400 }}>
+              {/* Close Button */}
+              <button 
+                onClick={() => setShowVerifyModal(false)} 
+                style={{ position: "absolute", top: 12, right: 12, background: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)", border: "none", cursor: "pointer", zIndex: 10, color: txt, padding: 6, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <X size={18} />
+              </button>
+              
+              {/* The Truecaller Verification Component */}
+              <PhoneVerification 
+                onVerified={() => {
+                  setShowVerifyModal(false);
+                  loadData(); // Re-fetch user data to show green verified badge!
+                }} 
+              />
+            </div>
+          </div>
         )}
       </div>
     </>
