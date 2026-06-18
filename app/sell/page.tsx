@@ -53,13 +53,14 @@ export default function SellPage() {
         if (verified) {
           const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
           
+          // 🔴 Safe DB Count: handles both user_id or owner_id
           const { count } = await supabase
             .from("products")
             .select("*", { count: "exact", head: true })
-            .eq("user_id", localUserId)
+            .or(`user_id.eq.${localUserId},owner_id.eq.${localUserId}`)
             .gte("created_at", sevenDaysAgo);
 
-          if (count && count >= 2) {
+          if (count !== null && count >= 2) {
             setLimitExceeded(true);
           }
         }
@@ -106,7 +107,7 @@ export default function SellPage() {
     );
   }
 
-  // ── UI: Verification Required (Simple & Classic) ──
+  // ── UI: Verification Required ──
   if (!isVerified) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#0a0a0a] p-4">
@@ -119,7 +120,7 @@ export default function SellPage() {
               Please go to your profile and verify your phone number first to start selling.
             </p>
             <button 
-              onClick={() => router.push('/profile')} // Assuming verification is in dashboard/profile
+              onClick={() => router.push('/profile')}
               className="w-full py-2.5 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-xl transition-colors"
             >
                Go to Profile
@@ -135,7 +136,7 @@ export default function SellPage() {
     )
   }
 
-  // ── UI: Limit Exceeded (Simple & Classic) ──
+  // ── UI: Limit Exceeded ──
   if (limitExceeded) {
      return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#0a0a0a] p-4">
@@ -148,10 +149,10 @@ export default function SellPage() {
               You have used your 2 free listings for this week. Please wait a few days to list a new device.
             </p>
             <button 
-              onClick={() => router.push('/')} 
+              onClick={() => router.push('/dashboard')} 
               className="w-full py-2.5 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-xl transition-colors"
             >
-               Return Home
+               Return to Dashboard
             </button>
          </div>
       </div>

@@ -16,7 +16,6 @@ import Link from "next/link";
 export default function DashboardPage() {
   const router = useRouter();
   
-  // Ab Unified Auth se stable user object mil raha hai
   const { user, isLoaded, logout } = useBuyzzeAuth();
   const { signOut } = useClerk();
   
@@ -25,21 +24,18 @@ export default function DashboardPage() {
   const [totalProducts, setTotalProducts] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Auth Guard & Data Init (Clean & Direct)
   useEffect(() => {
     if (!isLoaded) return;
-
     if (!user) {
       router.replace("/login");
       return;
     }
-
     initData(user.id);
   }, [isLoaded, user, router]);
 
   async function initData(uid: string) {
     try {
-      // 1. Fetch Profile
+      // 1. Fetch Profile Info
       const { data: profileData } = await supabase
         .from("profiles")
         .select("full_name")
@@ -48,28 +44,18 @@ export default function DashboardPage() {
 
       if (profileData) setProfile(profileData);
 
-      // 2. Fetch Dashboard Data
-      const dashboard = await getDashboardData(uid);
-      let finalProducts = dashboard?.products || [];
-      let finalTotal = dashboard?.totalProducts || 0;
+      // 2. 🔴 DIRECT SUPABASE FETCH FOR ALL PRODUCTS (No hidden limits!)
+      const { data: directProducts, error: prodErr } = await supabase
+        .from("products")
+        .select("*")
+        .or(`owner_id.eq.${uid},user_id.eq.${uid}`) // Safe for both column names
+        .order("created_at", { ascending: false });
 
-      // 🔥 DIRECT SUPABASE FALLBACK: Agar service fail ho jaye ya products 0 return kare,
-      // par Supabase me data ho, toh ye seedha wahan se fetch kar lega.
-      if (finalProducts.length === 0) {
-        const { data: directProducts } = await supabase
-          .from("products")
-          .select("*")
-          .or(`owner_id.eq.${uid},user_id.eq.${uid}`) // Safe check for both column names
-          .order("created_at", { ascending: false });
-
-        if (directProducts && directProducts.length > 0) {
-          finalProducts = directProducts;
-          finalTotal = directProducts.length;
-        }
+      if (!prodErr && directProducts) {
+        setProducts(directProducts);
+        setTotalProducts(directProducts.length); // Exact count from DB
       }
 
-      setProducts(finalProducts);
-      setTotalProducts(finalTotal);
     } catch (error) {
       console.error("Dashboard Init Error:", error);
     } finally {
@@ -79,12 +65,11 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     if (logout) {
-      await logout(); // Using unified logout from hook
+      await logout();
     } else {
       if (typeof window !== "undefined") {
         localStorage.removeItem("buyzze_logged_in");
         localStorage.removeItem("buyzze_fast_id");
-        document.cookie = "buyzze_fast_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
       }
       await signOut();
       router.push("/login");
@@ -99,17 +84,13 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-
-      {/* Classic Minimal Navbar */}
       <nav className="sticky top-0 z-50 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="bg-blue-600 p-1.5 rounded-lg flex items-center justify-center">
               <LayoutDashboard className="text-white w-4 h-4" />
             </div>
-            <span className="text-lg font-bold tracking-tight">
-              Dashboard
-            </span>
+            <span className="text-lg font-bold tracking-tight">Dashboard</span>
           </div>
           <button
             onClick={handleLogout}
@@ -121,17 +102,14 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 space-y-8">
-        
-        {/* Header Section */}
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
               Welcome back, {profile?.full_name?.split(" ")[0] || user?.full_name?.split(" ")[0] || "Merchant"}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Here's an overview of your marketplace activity today.
+              Here's an overview of your marketplace activity.
             </p>
           </motion.div>
           
@@ -146,17 +124,13 @@ export default function DashboardPage() {
           </Link>
         </header>
 
-        {/* Dashboard Grid Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-          
-          {/* Left Column: User Info */}
           <div className="lg:col-span-4">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 }}>
               <UserInfoCard user={user} profileName={profile?.full_name} />
             </motion.div>
           </div>
           
-          {/* Right Column: Stats & Products List */}
           <div className="lg:col-span-8 space-y-6 lg:space-y-8">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.2 }}>
               <StatsCards totalProducts={totalProducts} />
@@ -170,12 +144,10 @@ export default function DashboardPage() {
                 <h3 className="text-base font-semibold tracking-tight">Active Listings</h3>
               </div>
               <div className="p-6">
-                {/* 🔴 Direct user.id pass kar rahe hain */}
                 {user && <MyProductsList products={products} userId={user.id} />}
               </div>
             </motion.div>
           </div>
-
         </div>
       </main>
     </div>
