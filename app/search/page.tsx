@@ -1,5 +1,5 @@
-export const dynamic = 'force-dynamic';
 "use client";
+export const dynamic = 'force-dynamic';
 import { useEffect, useState, Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
