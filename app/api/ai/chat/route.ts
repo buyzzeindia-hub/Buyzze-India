@@ -6,14 +6,13 @@ import { createClient } from '@supabase/supabase-js';
 // ─────────────────────────────────────────────────────────────────────────────
 // ENVIRONMENT & CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
-export async function POST(req: Request) {
-  // ✅ Andar move kar diya
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
 
-const OLLAMA_URL    = process.env.OLLAMA_NGROK_URL!;   // e.g. https://xxx.ngrok-free.app/api/chat
+// ✅ Helper function to lazily initialize Supabase ONLY at runtime
+const getSupabase = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 const OLLAMA_MODEL  = 'llama3';
 const HISTORY_LIMIT = 8;                               // last N messages
 const PRODUCT_LIMIT = 5;                               // max products to return
@@ -57,7 +56,7 @@ interface Product {
   storage: string;
   ram?: string;
   color?: string;
-  images?: string[];   // text[] from Supabase — array of image URLs
+  images?: string[];   
 }
 interface HistoryRow { role: string; content: string; }
 
@@ -88,70 +87,59 @@ function detectIntent(message: string): Intent {
   const msg = message.toLowerCase().trim();
   const words = msg.split(/\s+/);
 
-  // Greeting – very short messages
   if (words.length <= 3 && /^(hi+|hello|hey+|hii+|namaste|helo|yo|sup|hlo|kya haal|kaisa|wassup|hows|how are)\b/.test(msg))
     return 'greeting';
 
-  // About BuYzze platform
-  if (/\b(buyzze|buyzze\.in|website|platform|app|kya hai|what is|about|ke baare)\b/.test(msg) &&
-      !/\b(phone|brand|model|price)\b/.test(msg))
+  if (/\\b(buyzze|buyzze\\.in|website|platform|app|kya hai|what is|about|ke baare)\\b/.test(msg) &&
+      !/\\b(phone|brand|model|price)\\b/.test(msg))
     return 'about_buyzze';
 
-  // Selling intent
-  if (/\b(becho|bechna|sell|listing|list|daalo|post|upload|apna phone|mera phone bechna)\b/.test(msg))
+  if (/\\b(becho|bechna|sell|listing|list|daalo|post|upload|apna phone|mera phone bechna)\\b/.test(msg))
     return 'sell_help';
 
-  // Buying process help
-  if (/\b(kaise khareedu|kaise le|how to buy|purchase kaise|order|delivery)\b/.test(msg))
+  if (/\\b(kaise khareedu|kaise le|how to buy|purchase kaise|order|delivery)\\b/.test(msg))
     return 'buy_help';
 
-  // Safety / scam questions
-  if (/\b(safe|scam|fraud|fake|trust|real|genuine|imei|verify|dhoka)\b/.test(msg))
+  if (/\\b(safe|scam|fraud|fake|trust|real|genuine|imei|verify|dhoka)\\b/.test(msg))
     return 'safety_question';
 
-  // Frustrated / problem
-  if (/\b(kaam nahi|nahi chal|problem|issue|error|dikkat|frustrated|ugh|wtf|bekar|bakwaas)\b/.test(msg))
+  if (/\\b(kaam nahi|nahi chal|problem|issue|error|dikkat|frustrated|ugh|wtf|bekar|bakwaas)\\b/.test(msg))
     return 'frustrated';
 
-  // Urgent
-  if (/\b(urgent|jaldi|asap|aaj chahiye|abhi chahiye|immediately|today)\b/.test(msg))
+  if (/\\b(urgent|jaldi|asap|aaj chahiye|abhi chahiye|immediately|today)\\b/.test(msg))
     return 'urgent';
 
-  // Funny / chitchat
-  if (/\b(joke|funny|haha|lol|meme|bored|timepass|pagal|ullu|bakwas|roast)\b/.test(msg))
+  if (/\\b(joke|funny|haha|lol|meme|bored|timepass|pagal|ullu|bakwas|roast)\\b/.test(msg))
     return 'funny_chitchat';
 
-  // Off‑topic (non‑phone)
-  if (/\b(cricket|politics|news|weather|movie|song|recipe|homework|study|exam|gf|bf|love)\b/.test(msg))
+  if (/\\b(cricket|politics|news|weather|movie|song|recipe|homework|study|exam|gf|bf|love)\\b/.test(msg))
     return 'off_topic';
 
-  // Product search – default for anything with brand/model hints
-  if (/\b(chahiye|dikhao|show|dhundo|stock|price|kitna|under|budget|khareed|lena|available|iphone|samsung|oneplus|xiaomi|redmi|vivo|oppo|realme|pixel|motorola|nothing|poco|nokia)\b/.test(msg))
+  if (/\\b(chahiye|dikhao|show|dhundo|stock|price|kitna|under|budget|khareed|lena|available|iphone|samsung|oneplus|xiaomi|redmi|vivo|oppo|realme|pixel|motorola|nothing|poco|nokia)\\b/.test(msg))
     return 'product_search';
 
   return 'other';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// KEYWORD EXTRACTOR (remove stop words, keep only meaningful terms)
+// KEYWORD EXTRACTOR
 // ─────────────────────────────────────────────────────────────────────────────
 function extractKeywords(text: string): string[] {
   return text
     .toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
-    .split(/\s+/)
-    .filter(w => w.length >= 2 && !STOP_WORDS.has(w))  // >= 2 to catch model numbers like f6, a54, s23
+    .replace(/[^\\w\\s]/g, ' ')
+    .split(/\\s+/)
+    .filter(w => w.length >= 2 && !STOP_WORDS.has(w))  
     .slice(0, 6);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PRODUCT SEARCH (RAG) – ONLY from Supabase, NEVER from model knowledge
+// PRODUCT SEARCH (RAG) 
 // ─────────────────────────────────────────────────────────────────────────────
 async function searchProducts(message: string, intent: Intent): Promise<{
   products: Product[];
   searchedButEmpty: boolean;
 }> {
-  // Intents that should NOT trigger a product search
   const noSearchIntents: Intent[] = [
     'greeting', 'sell_help', 'buy_help', 'about_buyzze',
     'frustrated', 'funny_chitchat', 'off_topic'
@@ -161,23 +149,23 @@ async function searchProducts(message: string, intent: Intent): Promise<{
   }
 
   try {
-    // Price range detection (e.g., "under 15000", "15k", "₹10000 se kam")
     const priceMatch = message.match(
-      /(?:under|below|se kam|budget|max|upto|within)\s*(?:rs\.?|₹)?\s*(\d[\d,]*(?:k|000)?)\b/i
+      /(?:under|below|se kam|budget|max|upto|within)\\s*(?:rs\\.?|₹)?\\s*(\\d[\\d,]*(?:k|000)?)\\b/i
     );
     let maxPrice: number | null = null;
     if (priceMatch) {
       const raw = priceMatch[1].replace(/,/g, '').replace(/k$/i, '000');
       maxPrice = parseInt(raw, 10);
-      if (!isNaN(maxPrice) && maxPrice < 1000) maxPrice *= 1000; // "15k" → 15000
+      if (!isNaN(maxPrice) && maxPrice < 1000) maxPrice *= 1000; 
     }
 
     const keywords = extractKeywords(message);
 
-    // No meaningful keywords and no price → nothing to search
     if (keywords.length === 0 && !maxPrice) {
       return { products: [], searchedButEmpty: false };
     }
+
+    const supabase = getSupabase(); // ✅ Correct runtime initialization
 
     let query = supabase
       .from('products')
@@ -186,7 +174,6 @@ async function searchProducts(message: string, intent: Intent): Promise<{
       .limit(PRODUCT_LIMIT);
 
     if (keywords.length > 0) {
-      // OR across title, brand, model, city
       const orClauses = keywords.map(kw =>
         `title.ilike.%${kw}%,brand.ilike.%${kw}%,model.ilike.%${kw}%,city.ilike.%${kw}%`
       ).join(',');
@@ -213,7 +200,7 @@ async function searchProducts(message: string, intent: Intent): Promise<{
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FORMAT PRODUCTS FOR PROMPT (clean, concise listing)
+// FORMAT PRODUCTS
 // ─────────────────────────────────────────────────────────────────────────────
 function formatProducts(products: Product[]): string {
   return products.map((p, i) => {
@@ -228,13 +215,11 @@ function formatProducts(products: Product[]): string {
       `City: ${p.city}`,
     ].filter(Boolean);
     return parts.join(' | ');
-  }).join('\n');
+  }).join('\\n');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HALLUCINATION VALIDATOR — Layer 2 Defense
-// AI ke response ko check karo — agar usne koi phone mention kiya jo DB mein
-// nahi hai, toh response replace kar do. Yeh code-level hard block hai.
+// HALLUCINATION VALIDATOR
 // ─────────────────────────────────────────────────────────────────────────────
 function validateResponse(
   aiText: string,
@@ -243,28 +228,21 @@ function validateResponse(
   intent: Intent,
   lang: 'hindi' | 'english',
 ): string {
-  // Sirf product_search intent pe validate karo
   if (intent !== 'product_search' && intent !== 'other') return aiText;
-  // Agar search hi nahi hua toh validate karne ki zarurat nahi
   if (!searchedButEmpty && products.length === 0) return aiText;
 
-  // DB mein jo models/brands hain unki list banao (lowercase)
   const allowedTerms = new Set<string>();
   products.forEach(p => {
     if (p.brand) allowedTerms.add(p.brand.toLowerCase());
     if (p.model) allowedTerms.add(p.model.toLowerCase());
-    // Title ke words bhi add karo
-    p.title?.toLowerCase().split(/\s+/).forEach(w => w.length > 2 && allowedTerms.add(w));
+    p.title?.toLowerCase().split(/\\s+/).forEach(w => w.length > 2 && allowedTerms.add(w));
   });
 
-  // Known phone model patterns jo Llama hallucinate karta hai
-  // Agar DB empty tha aur AI ne phir bhi koi specific model suggest kiya
-  const phoneModelPattern = /\b(iphone\s*\d+|galaxy\s*[a-z]\d+|oneplus\s*\d+|redmi\s*\d+|poco\s*[a-z]\d+|pixel\s*\d+|note\s*\d+|pro\s*max|ultra|fold|flip)\b/gi;
+  const phoneModelPattern = /\\b(iphone\\s*\\d+|galaxy\\s*[a-z]\\d+|oneplus\\s*\\d+|redmi\\s*\\d+|poco\\s*[a-z]\\d+|pixel\\s*\\d+|note\\s*\\d+|pro\\s*max|ultra|fold|flip)\\b/gi;
 
   if (searchedButEmpty) {
     const mentionedModels = aiText.match(phoneModelPattern);
     if (mentionedModels && mentionedModels.length > 0) {
-      // AI ne specific models suggest kiye jabki DB empty tha — BLOCK karo
       return lang === 'hindi'
         ? '📭 Ye model/brand abhi BuYzze pe available nahi hai. Doosre phones dekhne ke liye homepage pe browse karo!'
         : '📭 This model/brand is not available on BuYzze right now. Browse the homepage to explore other phones!';
@@ -275,10 +253,11 @@ function validateResponse(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FETCH CHAT HISTORY (last N messages, newest first, then reverse)
+// FETCH CHAT HISTORY
 // ─────────────────────────────────────────────────────────────────────────────
 async function fetchHistory(userId: string, sessionId: string): Promise<ChatMessage[]> {
   try {
+    const supabase = getSupabase(); // ✅ Correct runtime initialization
     const { data } = await supabase
       .from('chat_history')
       .select('role, content')
@@ -298,9 +277,10 @@ async function fetchHistory(userId: string, sessionId: string): Promise<ChatMess
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SAVE MESSAGE (non‑blocking, fire‑and‑forget)
+// SAVE MESSAGE 
 // ─────────────────────────────────────────────────────────────────────────────
 function saveMsg(userId: string, sessionId: string, role: 'user' | 'ai', content: string) {
+  const supabase = getSupabase(); // ✅ Correct runtime initialization
   supabase
     .from('chat_history')
     .insert([{ user_id: String(userId), session_id: sessionId, role, content }])
@@ -308,7 +288,7 @@ function saveMsg(userId: string, sessionId: string, role: 'user' | 'ai', content
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BUILD SYSTEM PROMPT (grounded, intent‑aware, language‑locked)
+// BUILD SYSTEM PROMPT 
 // ─────────────────────────────────────────────────────────────────────────────
 function buildSystemPrompt(
   intent: Intent,
@@ -317,17 +297,14 @@ function buildSystemPrompt(
   searchedButEmpty: boolean,
   isShortMessage: boolean,
 ): string {
-  // Language rule – strict separation
   const langRule = lang === 'hindi'
     ? `🗣️ LANGUAGE: User Hindi/Hinglish mein baat kar raha hai. TU SIRF HINDI/HINGLISH MEIN REPLY KAREGA. Angrezi mat bolna.`
     : `🗣️ LANGUAGE: User is speaking in English. YOU WILL REPLY ONLY IN ENGLISH. Do not mix Hindi.`;
 
-  // Length control
   const lengthRule = isShortMessage
     ? `📏 LENGTH: User ka message bahut chhota hai. Tera reply MAX 2 lines hona chahiye.`
     : `📏 LENGTH: Utna hi bol jitna zaruri hai. Padding, filler, unnecessary lines — ZERO.`;
 
-  // GROUNDING RULE – MOST CRITICAL – HALLUCINATION FORBIDDEN
   const groundingRule = `
 🔒 GROUNDING RULE — THIS IS YOUR MOST IMPORTANT INSTRUCTION. READ CAREFULLY:
 - You are a DATABASE READER, not a phone encyclopedia.
@@ -339,17 +316,15 @@ function buildSystemPrompt(
 - IMAGINE: You are a new employee who has never heard of any phone brand. You only read from the inventory list given to you. That is your only source of truth.
 - VIOLATION OF THIS RULE = giving wrong info to a real customer = serious mistake.`;
 
-  // Inventory section
   let inventorySection: string;
   if (productContext) {
-    inventorySection = `\n📦 LIVE INVENTORY (SIRF INHI PHONES KE BAARE MEIN BAAT KARO):\n${productContext}`;
+    inventorySection = `\\n📦 LIVE INVENTORY (SIRF INHI PHONES KE BAARE MEIN BAAT KARO):\\n${productContext}`;
   } else if (searchedButEmpty) {
-    inventorySection = `\n📦 LIVE INVENTORY: Is query se koi bhi phone match nahi hua BuYzze database mein. Clearly batao ki ye model/brand abhi available nahi hai. Koi bahar ka data mat do.`;
+    inventorySection = `\\n📦 LIVE INVENTORY: Is query se koi bhi phone match nahi hua BuYzze database mein. Clearly batao ki ye model/brand abhi available nahi hai. Koi bahar ka data mat do.`;
   } else {
-    inventorySection = `\n📦 LIVE INVENTORY: Is conversation mein koi product search nahi hua.`;
+    inventorySection = `\\n📦 LIVE INVENTORY: Is conversation mein koi product search nahi hua.`;
   }
 
-  // Intent‑specific instructions
   const intentInstruction: Record<Intent, string> = {
     greeting: lang === 'hindi'
       ? `User ne greet kiya hai. Warm, chill reply do — 1-2 lines. Apna naam batao (ZzE AI). Thoda funny bhi ho sakta hai.`
@@ -433,6 +408,9 @@ ${inventorySection}
 // POST HANDLER (main entry)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(req: Request) {
+  // ✅ Fetch process.env variables safely at runtime inside the handler
+  const OLLAMA_URL = process.env.OLLAMA_NGROK_URL!;
+
   // 1. Parse request
   let message: string, userId: string, sessionId: string;
   try {
@@ -451,7 +429,7 @@ export async function POST(req: Request) {
   // 2. Analyse message
   const intent      = detectIntent(message);
   const lang        = detectLanguage(message);
-  const isShort     = message.trim().split(/\s+/).length <= 4;
+  const isShort     = message.trim().split(/\\s+/).length <= 4;
 
   // 3. Parallel ops: save user msg, fetch history, search products
   const [, history, searchResult] = await Promise.all([
@@ -474,7 +452,7 @@ export async function POST(req: Request) {
   // 5. Prepare messages for Ollama (system + history + current user)
   const ollamaMessages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
-    ...history.slice(-6),   // short‑term memory (last 6 turns)
+    ...history.slice(-6),   
     { role: 'user', content: message },
   ];
 
@@ -512,7 +490,6 @@ export async function POST(req: Request) {
     const rawText = await res.text();
     if (!res.ok) throw new Error(`HTTP_${res.status}`);
 
-    // Ngrok sometimes returns HTML instead of JSON
     if (rawText.trimStart().startsWith('<')) throw new Error('NGROK_HTML');
 
     let parsed: Record<string, unknown>;
@@ -529,7 +506,6 @@ export async function POST(req: Request) {
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
 
-    // Friendly error messages in the user's language
     const errorReplies: Record<string, string> = {
       NGROK_HTML:      lang === 'hindi' ? '⚠️ Ngrok tunnel mein gadbad hai ya Ollama band hai. Check karo!' : '⚠️ Ngrok tunnel issue or Ollama is offline. Please check!',
       JSON_PARSE_FAIL: lang === 'hindi' ? '🔄 AI response parse nahi hua. Dobara try karo.' : '🔄 Could not parse AI response. Please try again.',

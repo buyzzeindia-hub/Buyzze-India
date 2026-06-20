@@ -7,15 +7,11 @@ import { cookies } from "next/headers";
 import { v4 as uuidv4 } from "uuid"; 
 
 export async function POST(req: Request) {
-  // ✅ ISE ANDAR RAKHO! Ab ye build time par run nahi hoga.
+  // ✅ Supabase hamesha function ke andar initialize hoga taaki build fail na ho
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-  try {
-    const { credential } = await req.json();
-
-export async function POST(req: Request) {
   try {
     const { credential } = await req.json();
     const decoded: any = jwtDecode(credential);
