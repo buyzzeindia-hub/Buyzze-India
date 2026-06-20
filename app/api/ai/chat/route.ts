@@ -6,10 +6,12 @@ import { createClient } from '@supabase/supabase-js';
 // ─────────────────────────────────────────────────────────────────────────────
 // ENVIRONMENT & CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export async function POST(req: Request) {
+  // ✅ Andar move kar diya
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
 const OLLAMA_URL    = process.env.OLLAMA_NGROK_URL!;   // e.g. https://xxx.ngrok-free.app/api/chat
 const OLLAMA_MODEL  = 'llama3';
