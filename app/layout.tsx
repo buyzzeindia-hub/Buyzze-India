@@ -1,3 +1,5 @@
+export const runtime = 'edge'; // 👈 Ye line Next.js ko force karegi ki wo saari API aur dynamic pages ko Edge Runtime par set kar de
+
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import ConditionalHeader from "@/components/ConditionalHeader";

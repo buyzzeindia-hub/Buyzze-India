@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "opennextjs-cloudflare",
     "start": "next start",
     "lint": "eslint ."
   },
@@ -12,6 +12,7 @@
     "@clerk/nextjs": "^6.39.0",
     "@dotlottie/react-player": "^1.6.19",
     "@lottiefiles/dotlottie-react": "^0.17.12",
+    "@opennextjs/cloudflare": "^1.19.11",
     "@rive-app/react-canvas": "^4.25.3",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.45.0",
