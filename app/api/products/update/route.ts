@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
 
-const supabaseAdmin = createClient(
+const getSupabaseAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { persistSession: false } }
@@ -24,7 +24,8 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Product ID required" }, { status: 400 });
     }
 
-    // ✅ Sirf apna product update kar sake — owner check
+    const supabaseAdmin = getSupabaseAdmin();
+
     const { data: existing } = await supabaseAdmin
       .from("products")
       .select("owner_id")
@@ -56,11 +57,13 @@ export async function PATCH(req: NextRequest) {
       .eq("id", id);
 
     if (error) {
+      console.error("Update product error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
+    console.error("PATCH error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
 
-const supabaseAdmin = createClient(
+const getSupabaseAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { persistSession: false } }
@@ -12,7 +12,6 @@ const supabaseAdmin = createClient(
 
 export async function DELETE(req: NextRequest) {
   try {
-    // ✅ Sirf logged-in Clerk user delete kar sake
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,7 +22,8 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Product ID required" }, { status: 400 });
     }
 
-    // ✅ Pehle check karo — kya ye product is user ka hai?
+    const supabaseAdmin = getSupabaseAdmin();
+
     const { data: product, error: fetchError } = await supabaseAdmin
       .from("products")
       .select("owner_id, images")
@@ -38,10 +38,8 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden — not your product" }, { status: 403 });
     }
 
-    // ✅ Storage se images bhi delete karo
     if (product.images && product.images.length > 0) {
       const filePaths = product.images.map((url: string) => {
-        // URL se sirf file name nikalo
         const parts = url.split("/products-images/");
         return parts[1] || "";
       }).filter(Boolean);
@@ -53,7 +51,6 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    // ✅ Product delete karo
     const { error: deleteError } = await supabaseAdmin
       .from("products")
       .delete()

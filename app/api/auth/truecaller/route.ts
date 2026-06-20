@@ -5,12 +5,15 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { v4 as uuidv4 } from "uuid";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+// ✅ Helper function to lazily initialize Supabase ONLY at runtime
+const getSupabaseAdmin = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: Request) {
   try {
+    const supabaseAdmin = getSupabaseAdmin();
     const { payload } = await req.json();
     
     const phoneNumber = payload?.phoneNumber;
@@ -25,7 +28,6 @@ export async function POST(req: Request) {
 
     let existingUser = null;
 
-    // 🔥 SMART CHECK 1: Pehle Email se dhoondho
     if (email) {
       const { data: emailMatch } = await supabaseAdmin
         .from("profiles")
@@ -36,7 +38,6 @@ export async function POST(req: Request) {
       existingUser = emailMatch?.[0];
     }
 
-    // 🔥 SMART CHECK 2: Phir Phone Number se dhoondho
     if (!existingUser) {
       const { data: phoneMatch } = await supabaseAdmin
         .from("profiles")
@@ -60,7 +61,6 @@ export async function POST(req: Request) {
         created_at: new Date().toISOString(),
       }]);
     } else {
-      // ✅ LINK ACCOUNTS: Purane account me phone update karo
       await supabaseAdmin.from("profiles").update({
         verified_phone: phoneNumber,
         is_phone_verified: true,
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error("Truecaller Backend Route Exception:", error);
+    console.error("Truecaller Standard API Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

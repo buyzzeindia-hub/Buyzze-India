@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
 
-const supabaseAdmin = createClient(
+// ✅ Helper function to lazily initialize Supabase ONLY at runtime
+const getSupabaseAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { persistSession: false } }
@@ -12,6 +13,7 @@ const supabaseAdmin = createClient(
 
 export async function GET(req: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin(); // ✅ Initialized inside handler
     const { searchParams } = new URL(req.url);
     const product_id = searchParams.get("product_id");
     if (!product_id) return NextResponse.json({ error: "product_id required" }, { status: 400 });
@@ -39,6 +41,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin(); // ✅ Initialized inside handler
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
 
-const supabaseAdmin = createClient(
+const getSupabaseAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { persistSession: false } }
@@ -18,12 +18,13 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const product_id = Number(body.product_id); // ✅ always number
+    const product_id = Number(body.product_id); 
     if (!product_id) {
       return NextResponse.json({ error: "product_id required" }, { status: 400 });
     }
 
-    // Check existing
+    const supabaseAdmin = getSupabaseAdmin();
+
     const { data: existing, error: selectErr } = await supabaseAdmin
       .from("favorites")
       .select("id")
@@ -37,20 +38,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (existing) {
-      // Remove
-      const { error: deleteErr } = await supabaseAdmin
+      const { error: delErr } = await supabaseAdmin
         .from("favorites")
         .delete()
-        .eq("user_id", userId)
-        .eq("product_id", product_id);
+        .eq("id", existing.id);
 
-      if (deleteErr) {
-        console.error("Delete error:", deleteErr);
-        return NextResponse.json({ error: deleteErr.message }, { status: 500 });
+      if (delErr) {
+        console.error("Delete error:", delErr);
+        return NextResponse.json({ error: delErr.message }, { status: 500 });
       }
       return NextResponse.json({ success: true, action: "removed" });
     } else {
-      // Add
       const { error: insertErr } = await supabaseAdmin
         .from("favorites")
         .insert({
@@ -78,6 +76,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, favorites: [] });
     }
 
+    const supabaseAdmin = getSupabaseAdmin();
+
     const { data, error } = await supabaseAdmin
       .from("favorites")
       .select("id, product_id, created_at")
@@ -89,9 +89,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, favorites: data ?? [] });
+    return NextResponse.json({ success: true, favorites: data || [] });
   } catch (err: any) {
-    console.error("Favorites GET catch:", err);
+    console.error("Favorites GET error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

@@ -4,23 +4,23 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
 
-// Admin client use kar rahe hain kyunki ye backend process hai
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+// ✅ Helper function to lazily initialize Supabase ONLY at runtime
+const getSupabaseAdmin = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST() {
   try {
-    // 1. Ek unique Request ID generate karo
+    const supabaseAdmin = getSupabaseAdmin();
     const requestId = uuidv4();
 
-    // 2. Database mein 'pending' status ke sath save karo
     const { error } = await supabaseAdmin
       .from("auth_requests")
       .insert([{
         id: requestId,
         status: "pending",
-        user_id: null // Abhi user verify nahi hua hai
+        user_id: null 
       }]);
 
     if (error) {
@@ -28,7 +28,6 @@ export async function POST() {
       throw error;
     }
 
-    // 3. Frontend ko ID wapas bhej do
     return NextResponse.json({ 
       success: true, 
       request_id: requestId 

@@ -5,14 +5,16 @@ import { headers } from "next/headers";
 import { WebhookEvent } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseAdmin = createClient(
+const getSupabaseAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { persistSession: false } }
 );
 
 export async function POST(req: Request) {
+  const supabaseAdmin = getSupabaseAdmin();
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
+  
   if (!WEBHOOK_SECRET) {
     return new Response("CLERK_WEBHOOK_SECRET missing", { status: 500 });
   }
@@ -62,16 +64,9 @@ export async function POST(req: Request) {
       return new Response("DB error: " + error.message, { status: 500 });
     }
 
-    console.log(`✅ Webhook profile synced: ${id}`);
+    console.log(`✅ Webhook profile synced for user: ${id}`);
+    return new Response("Webhook processed", { status: 200 });
   }
 
-  if (evt.type === "user.deleted") {
-    const { id } = evt.data;
-    if (id) {
-      await supabaseAdmin.from("profiles").delete().eq("id", id);
-      console.log(`🗑️ Profile deleted: ${id}`);
-    }
-  }
-
-  return new Response("OK", { status: 200 });
+  return new Response("Ignored event type", { status: 200 });
 }
