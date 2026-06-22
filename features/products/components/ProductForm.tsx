@@ -46,10 +46,10 @@ const BRANDS = [
 ];
 
 /* ─────────────────────────────────────────────────────────────
-   IMAGE COMPRESSION — Ultra-high compression, target < 10 KB
-   Uses progressive quality reduction until size is under limit
+   IMAGE COMPRESSION — Smart compression, target < 150 KB
+   Maintains high clarity (1080px) while reducing size
 ───────────────────────────────────────────────────────────── */
-const MAX_IMAGE_SIZE_BYTES = 10 * 1024; // 10 KB hard limit
+const MAX_IMAGE_SIZE_BYTES = 150 * 1024; // 150 KB optimal limit
 const MAX_IMAGES = 5;
 
 async function compressImage(file: File): Promise<File> {
@@ -61,9 +61,9 @@ async function compressImage(file: File): Promise<File> {
     img.onload = () => {
       URL.revokeObjectURL(url);
 
-      // Start with a limited resolution — 480px max side for aggressive size reduction
-      let maxDim = 480;
-      let quality = 0.55;
+      // Start with a high resolution — 1080px max side for excellent clarity
+      let maxDim = 1080;
+      let quality = 0.85;
 
       const tryCompress = (dim: number, q: number, attempt: number) => {
         const canvas = document.createElement("canvas");
@@ -78,13 +78,13 @@ async function compressImage(file: File): Promise<File> {
         canvas.toBlob((blob) => {
           if (!blob) { resolve(file); return; }
 
-          if (blob.size <= MAX_IMAGE_SIZE_BYTES || attempt >= 8) {
+          if (blob.size <= MAX_IMAGE_SIZE_BYTES || attempt >= 6) {
             // Done — wrap in File
             resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" }));
           } else {
-            // Still too large — reduce quality by 0.08 per step, shrink dim by 60px after step 3
-            const nextQ   = Math.max(0.10, q - 0.08);
-            const nextDim = attempt >= 3 ? Math.max(180, dim - 60) : dim;
+            // Still too large — reduce quality gently, and shrink dimension slightly after attempt 2
+            const nextQ   = Math.max(0.40, q - 0.10);
+            const nextDim = attempt >= 2 ? Math.max(600, dim - 150) : dim;
             tryCompress(nextDim, nextQ, attempt + 1);
           }
         }, "image/webp", q);
@@ -148,7 +148,7 @@ async function addWatermark(file: File): Promise<File> {
       canvas.toBlob((blob) => {
         if (!blob) { resolve(file); return; }
         resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" }));
-      }, "image/webp", 0.80);
+      }, "image/webp", 0.90);
     };
     img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
   });
@@ -267,7 +267,7 @@ export default function ProductForm({
     }
   };
 
-  /* ── IMAGE UPLOAD (max 5, each < 10 KB after compression) ── */
+  /* ── IMAGE UPLOAD (max 5) ── */
   const uploadImages = async (files: FileList) => {
     const remaining = MAX_IMAGES - form.images.length;
     if (remaining <= 0) return;
@@ -762,21 +762,12 @@ export default function ProductForm({
                       {imagesLeft > 0 && ` · ${imagesLeft} slot${imagesLeft > 1 ? "s" : ""} left`}
                     </p>
                   </div>
-                  {uploadPhase !== "idle" && (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800">
-                      <div className="w-1.5 h-1.5 rounded-full bg-neutral-900 dark:bg-white animate-pulse" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-600 dark:text-neutral-300">
-                        {uploadPhase === "compressing"  ? "Compressing…"  :
-                         uploadPhase === "watermarking" ? "Watermarking…" :
-                         uploadPhase === "uploading"    ? "Uploading…"    : "Done ✓"}
-                      </span>
-                    </div>
-                  )}
                 </div>
 
-                {/* Image grid */}
-                {imagePreviews.length > 0 && (
+                {/* Image grid & Skeleton Loader */}
+                {(imagePreviews.length > 0 || uploading) && (
                   <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5 mb-4">
+                    {/* Already uploaded images */}
                     {imagePreviews.map((img, idx) => (
                       <div key={img.remote} className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-neutral-100 dark:border-neutral-700 shadow-sm">
                         <img src={img.url} className="w-full h-full object-cover" alt={`Photo ${idx + 1}`} />
@@ -793,6 +784,16 @@ export default function ProductForm({
                         </button>
                       </div>
                     ))}
+                    
+                    {/* SKELETON LOADER (Shows instantly when uploading) */}
+                    {uploading && (
+                      <div className="relative aspect-square rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 flex flex-col items-center justify-center border-2 border-dashed border-neutral-200 dark:border-neutral-700 animate-pulse">
+                        <div className="w-5 h-5 border-2 border-neutral-300 dark:border-neutral-600 border-t-neutral-900 dark:border-t-white rounded-full animate-spin mb-1.5" />
+                        <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-500">
+                          {uploadPhase === "compressing" ? "Optimizing" : uploadPhase === "watermarking" ? "Branding" : "Uploading"}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
 

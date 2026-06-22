@@ -1,41 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { MapPin } from "lucide-react";
-
-
-// ── Scroll-animated card wrapper ──────────────────────────────
-function AnimatedCard({ children, index }: { children: React.ReactNode; index: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setVisible(entry.isIntersecting),
-      { threshold: 0.1, rootMargin: "0px 0px -30px 0px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div
-      ref={ref}
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0) scale(1)" : "translateY(24px) scale(0.97)",
-        transition: `opacity 0.4s cubic-bezier(0.4,0,0.2,1) ${index * 60}ms, transform 0.4s cubic-bezier(0.4,0,0.2,1) ${index * 60}ms`,
-        willChange: "opacity, transform",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+import { MapPin, ChevronRight } from "lucide-react";
 
 type Props = {
   productId: string | number;
@@ -44,151 +12,157 @@ type Props = {
   price: number;
   city: string;
   state: string;
+  pincode?: string;
 };
 
-export function SimilarProducts({ productId, brand, category, price, city, state }: Props) {
+// ── Horizontal Slider Row Component ──
+function SliderRow({ title, items, bgColorDark, bgColorLight }: { title: string, items: any[], bgColorDark: string, bgColorLight: string }) {
   const router = useRouter();
-  const [items, setItems] = useState<any[]>([]);
+  if (!items || items.length === 0) return null;
+
+  return (
+    <div className={`rounded-2xl p-4 mb-5 border border-neutral-100 dark:border-neutral-800/50 ${bgColorLight} ${bgColorDark}`}>
+      <div className="flex items-center justify-between mb-3 px-1">
+        <h3 className="text-sm font-bold text-neutral-900 dark:text-white">{title}</h3>
+        <ChevronRight size={16} className="text-neutral-400" />
+      </div>
+      <div className="flex overflow-x-auto gap-3.5 snap-x snap-mandatory scrollbar-hide pb-2">
+        {items.map((item) => (
+          <div
+            key={item.id}
+            onClick={() => { router.push(`/products/${item.id}`); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+            className="snap-start shrink-0 w-[150px] md:w-[170px] bg-white dark:bg-[#111] rounded-2xl border border-neutral-200 dark:border-neutral-800/60 overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-all active:scale-[0.98] flex flex-col"
+          >
+            <div className="relative aspect-square bg-neutral-50 dark:bg-neutral-900 p-2 flex items-center justify-center">
+              <img
+                src={item.images?.[0] || "/placeholder.png"}
+                alt={item.title}
+                className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal"
+              />
+              {item.condition && (
+                <div className="absolute top-2 left-2 bg-white/90 dark:bg-neutral-800/90 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 shadow-sm border border-neutral-200/50 dark:border-neutral-700/50">
+                  {item.condition.split("-")[1] || item.condition}
+                </div>
+              )}
+            </div>
+            <div className="p-3 flex-1 flex flex-col justify-between">
+              <div>
+                {item.brand && <p className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-0.5">{item.brand}</p>}
+                <p className="text-xs font-semibold text-neutral-900 dark:text-white line-clamp-2 leading-snug">{item.title}</p>
+              </div>
+              <div className="mt-2">
+                <p className="text-base font-black text-neutral-900 dark:text-white mb-1.5">₹{Number(item.price).toLocaleString("en-IN")}</p>
+                <div className="flex items-center gap-1 text-[10px] text-neutral-500 dark:text-neutral-400 font-medium">
+                  <MapPin size={10} className="shrink-0" />
+                  <span className="truncate">{item.city}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function SimilarProducts({ productId, brand, category, price, city, state, pincode }: Props) {
+  const [lists, setLists] = useState<{ sameCity: any[]; nearbyPrice: any[]; sameBrand: any[] }>({ sameCity: [], nearbyPrice: [], sameBrand: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchSimilar = async () => {
-      if (!city) { setLoading(false); return; }
       setLoading(true);
       try {
+        // Fetch products in same state for performance
         const { data } = await supabase
           .from("products")
           .select("*")
+          .eq("state", state)
           .neq("id", productId)
-          .ilike("city", city)
-          .limit(10);
+          .limit(100);
 
-        setItems(data || []);
+        const allItems = data || [];
+
+        // 1. Same Exact City
+        const sameCity = allItems.filter(i => i.city?.toLowerCase() === city?.toLowerCase()).slice(0, 8);
+
+        // 2. Nearby Area (Using Pincode Prefix 50-100km radius) + Similar Price (+/- 25%)
+        const minPrice = price * 0.75;
+        const maxPrice = price * 1.25;
+        const pinPrefix = pincode ? String(pincode).substring(0, 2) : ""; 
+        
+        const nearbyPrice = allItems.filter(i => {
+          if (i.city?.toLowerCase() === city?.toLowerCase()) return false; // Avoid showing same city twice
+          const isPriceNear = Number(i.price) >= minPrice && Number(i.price) <= maxPrice;
+          const isNearLocation = pinPrefix && i.pincode ? String(i.pincode).startsWith(pinPrefix) : true;
+          return isPriceNear && isNearLocation;
+        }).slice(0, 8);
+
+        // 3. Same Brand anywhere in state
+        const sameBrand = allItems.filter(i => i.brand?.toLowerCase() === brand?.toLowerCase()).slice(0, 8);
+
+        setLists({ sameCity, nearbyPrice, sameBrand });
       } catch (error) {
-        console.error("Similar Products Error:", error);
+        console.error("Similar Products Error", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSimilar();
-  }, [productId, city]);
+    if (state) fetchSimilar();
+    else setLoading(false);
+  }, [productId, city, state, price, pincode, brand]);
 
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const days = Math.floor(diff / 86400000);
-    if (days === 0) return "Today";
-    if (days === 1) return "Yesterday";
-    if (days < 7) return `${days}d ago`;
-    return new Date(dateStr).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-  };
-
-  if (loading) return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 16 }}>
-      {[1,2,3,4,5].map(i => (
-        <div key={i} style={{ borderRadius: 16, overflow: "hidden", background: "#f1f5f9" }}>
-          <div style={{ aspectRatio: "1/1", background: "#e2e8f0", animation: "spulse 1.4s ease-in-out infinite" }} />
-          <div style={{ padding: "12px 12px 14px" }}>
-            <div style={{ height: 10, background: "#e2e8f0", borderRadius: 6, marginBottom: 8, width: "60%", animation: "spulse 1.4s ease-in-out infinite" }} />
-            <div style={{ height: 13, background: "#e2e8f0", borderRadius: 6, marginBottom: 8, animation: "spulse 1.4s ease-in-out infinite" }} />
-            <div style={{ height: 16, background: "#e2e8f0", borderRadius: 6, width: "50%", animation: "spulse 1.4s ease-in-out infinite" }} />
+  if (loading) {
+    return (
+      <div className="flex overflow-x-auto gap-3.5 pb-2 scrollbar-hide">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="shrink-0 w-[150px] md:w-[170px] bg-neutral-50 dark:bg-neutral-800/30 rounded-2xl border border-neutral-100 dark:border-neutral-800 p-2 animate-pulse">
+            <div className="aspect-square bg-neutral-200 dark:bg-neutral-700/50 rounded-xl mb-3" />
+            <div className="h-2 w-1/2 bg-neutral-200 dark:bg-neutral-700/50 rounded-full mb-2" />
+            <div className="h-3 w-full bg-neutral-200 dark:bg-neutral-700/50 rounded-full mb-1" />
+            <div className="h-3 w-3/4 bg-neutral-200 dark:bg-neutral-700/50 rounded-full mb-3" />
+            <div className="h-4 w-1/2 bg-neutral-200 dark:bg-neutral-700/50 rounded-full" />
           </div>
-        </div>
-      ))}
-      <style>{`@keyframes spulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
-    </div>
-  );
+        ))}
+      </div>
+    );
+  }
 
-  if (!items.length) return (
-    <div style={{ padding: "32px 0", textAlign: "center" }}>
-      <MapPin size={28} style={{ color: "#d1d5db", margin: "0 auto 10px", display: "block" }} />
-      <p style={{ fontSize: 13, fontWeight: 600, color: "#9ca3af", margin: 0 }}>No products found in {city}</p>
+  const { sameCity, nearbyPrice, sameBrand } = lists;
+
+  if (!sameCity.length && !nearbyPrice.length && !sameBrand.length) return (
+    <div className="py-6 text-center bg-neutral-50 dark:bg-neutral-900/40 rounded-2xl border border-neutral-100 dark:border-neutral-800/60">
+      <MapPin size={24} className="text-neutral-300 dark:text-neutral-600 mx-auto mb-2" />
+      <p className="text-xs font-semibold text-neutral-400">No other phones listed nearby</p>
     </div>
   );
 
   return (
-    <section>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 16 }}>
-        {items.map((item, index) => (
-          <AnimatedCard key={item.id} index={index}>
-          <div
-            onClick={() => { router.push(`/products/${item.id}`); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-            style={{
-              borderRadius: 16,
-              overflow: "hidden",
-              border: "1px solid #f1f5f9",
-              background: "#ffffff",
-              cursor: "pointer",
-              transition: "box-shadow 0.2s, transform 0.2s",
-              display: "flex",
-              flexDirection: "column",
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 24px rgba(0,0,0,0.1)";
-              (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.boxShadow = "none";
-              (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-            }}
-          >
-            {/* Image */}
-            <div style={{ aspectRatio: "1/1", background: "#f8fafc", overflow: "hidden", position: "relative" }}>
-              <img
-                src={item.images?.[0] || "/placeholder.png"}
-                alt={item.title}
-                style={{ width: "100%", height: "100%", objectFit: "contain", padding: 10, display: "block", transition: "transform 0.4s ease" }}
-                onMouseEnter={e => (e.currentTarget as HTMLImageElement).style.transform = "scale(1.06)"}
-                onMouseLeave={e => (e.currentTarget as HTMLImageElement).style.transform = "scale(1)"}
-              />
-              {/* Condition badge */}
-              {item.condition && (
-                <div style={{
-                  position: "absolute", top: 8, left: 8,
-                  background: "rgba(255,255,255,0.92)",
-                  backdropFilter: "blur(4px)",
-                  borderRadius: 20, padding: "3px 8px",
-                  fontSize: 9, fontWeight: 700,
-                  color: item.condition.toLowerCase().includes("superb") ? "#15803d"
-                       : item.condition.toLowerCase().includes("good") ? "#1d4ed8" : "#b45309",
-                  letterSpacing: "0.05em", textTransform: "uppercase",
-                }}>
-                  {item.condition}
-                </div>
-              )}
-            </div>
+    <section className="-mx-1">
+      {/* Box 1: Ultra Light Blue for Nearby Similar Priced */}
+      <SliderRow 
+        title={`Near ${city} under ₹${Math.round(price * 1.25).toLocaleString("en-IN")}`} 
+        items={nearbyPrice} 
+        bgColorLight="bg-blue-50/50" 
+        bgColorDark="dark:bg-blue-900/10" 
+      />
 
-            {/* Info */}
-            <div style={{ padding: "10px 12px 13px", flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
-              {item.brand && (
-                <p style={{ fontSize: 9, fontWeight: 800, color: "#2563eb", textTransform: "uppercase", letterSpacing: "0.1em", margin: 0 }}>
-                  {item.brand}
-                </p>
-              )}
-              <h3 style={{
-                fontSize: 12, fontWeight: 600, color: "#111827", margin: 0,
-                display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-                overflow: "hidden", lineHeight: 1.4,
-              }}>
-                {item.title}
-              </h3>
-              <p style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", margin: "4px 0 0", letterSpacing: "-0.5px" }}>
-                ₹{Number(item.price).toLocaleString("en-IN")}
-              </p>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  <MapPin size={9} color="#9ca3af" />
-                  <span style={{ fontSize: 9, color: "#9ca3af", fontWeight: 500 }}>{item.city}</span>
-                </div>
-                {item.created_at && (
-                  <span style={{ fontSize: 9, color: "#d1d5db", fontWeight: 500 }}>{timeAgo(item.created_at)}</span>
-                )}
-              </div>
-            </div>
-          </div>
-          </AnimatedCard>
-        ))}
-      </div>
+      {/* Box 2: Ultra Light Beige for Same City */}
+      <SliderRow 
+        title={`More phones in ${city}`} 
+        items={sameCity} 
+        bgColorLight="bg-stone-50" 
+        bgColorDark="dark:bg-stone-900/10" 
+      />
+
+      {/* Box 3: Ultra Light Slate for Brand Alternatives */}
+      <SliderRow 
+        title={`More from ${brand}`} 
+        items={sameBrand} 
+        bgColorLight="bg-slate-50" 
+        bgColorDark="dark:bg-neutral-800/30" 
+      />
     </section>
   );
 }
