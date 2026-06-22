@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "functions": {
+    "/chat/[id]": {},
+    "/chat": {},
+    "/condition": {},
+    "/copyright": {},
+    "/disclaimer": {},
+    "/": {},
+    "/privacy": {},
+    "/signup": {},
+    "/support": {},
+    "/terms": {},
+    "/top-brands": {},
+    "/dashboard": {},
+    "/products/[id]": {},
+    "/login": {},
+    "/products": {},
+    "/profile": {},
+    "/recently-added": {},
+    "/search": {},
+    "/sell/[id]": {},
+    "/sell/edit/[id]": {},
+    "/sell": {},
+    "/wishlist": {}
+  }
+}
