@@ -26,3 +26,4 @@ NEXT_PUBLIC_FIREBASE_APP_ID= "1:951445791066:web:164df3d107b402ffa01363"
 
 OLLAMA_NGROK_URL= "https://contemporaneous-inconceivable-earl.ngrok-free.dev/api/chat"
 NEXT_PUBLIC_GOOGLE_CLIENT_ID= "53474173239-heqkmd2ht8jt8ptoor29bcilmipsjnd6.apps.googleusercontent.com"
+NEXT_PUBLIC_TRUECALLER_APP_KEY=LAq1x7b1c1e08eb3f42d2a95f96d6b6f44e75

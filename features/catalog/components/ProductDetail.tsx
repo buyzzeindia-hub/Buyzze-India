@@ -378,18 +378,28 @@ export function ProductDetail({ product, userId: serverUserId }: { product: any;
         </div>
 
         <div className="max-w-6xl mx-auto px-6 py-7">
-          <div className="flex gap-7">
+          <div className="flex gap-7 items-start"> {/* items-start added */}
 
             {/* LEFT: Image + Thumbnails */}
-            <div className="w-[42%] space-y-3 sticky top-4 self-start">
+            {/* shrinking disabled with shrink-0 so it never disappears */}
+            <div className="w-[42%] shrink-0 space-y-3 sticky top-6 self-start">
               <div className="bg-white dark:bg-[#111] rounded-2xl border border-neutral-200 dark:border-neutral-800/60 overflow-hidden shadow-sm transition-colors">
-                <div className="relative overflow-hidden" style={{ aspectRatio: "1/1" }}>
+                
+                {/* Changed to aspect-square and added absolute inset-0 to prevent collapsing */}
+                <div className="relative w-full aspect-square overflow-hidden bg-neutral-50 dark:bg-[#0a0a0a]">
                   <AnimatePresence mode="wait">
-                    <motion.div key={active} className="w-full h-full"
-                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+                    <motion.div 
+                      key={active} 
+                      className="absolute inset-0 w-full h-full"
+                      initial={{ opacity: 0 }} 
+                      animate={{ opacity: 1 }} 
+                      exit={{ opacity: 0 }} 
+                      transition={{ duration: 0.18 }}
+                    >
                       <MagnifierImage src={images[active]} alt={product.title} onClick={() => setLightbox(true)} />
                     </motion.div>
                   </AnimatePresence>
+                  
                   {images.length > 1 && (
                     <>
                       <button className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 dark:bg-neutral-800/90 backdrop-blur shadow-md rounded-full flex items-center justify-center z-10 text-neutral-700 dark:text-neutral-200 hover:scale-105 transition"
@@ -403,6 +413,7 @@ export function ProductDetail({ product, userId: serverUserId }: { product: any;
                     </>
                   )}
                 </div>
+
                 {images.length > 1 && (
                   <div className="flex gap-2 px-4 py-3 border-t border-neutral-100 dark:border-neutral-800 overflow-x-auto scrollbar-hide">
                     {images.map((img: string, i: number) => (
@@ -417,7 +428,8 @@ export function ProductDetail({ product, userId: serverUserId }: { product: any;
             </div>
 
             {/* RIGHT: Product Details */}
-            <div className="flex-1 space-y-5">
+            {/* Added min-w-0 so it doesn't push the image out of screen */}
+            <div className="flex-1 min-w-0 space-y-5">
 
               {/* Title Card */}
               <div className="bg-white dark:bg-[#111] rounded-2xl border border-neutral-200 dark:border-neutral-800/60 p-6 shadow-sm transition-colors">
@@ -553,7 +565,7 @@ export function ProductDetail({ product, userId: serverUserId }: { product: any;
       <div className="lg:hidden min-h-screen bg-white dark:bg-[#0a0a0a] font-sans transition-colors">
 
         {/* Full-width image carousel */}
-        <div className="relative bg-neutral-50 dark:bg-neutral-900 w-full" style={{ aspectRatio: "1/1", maxHeight: "400px" }}>
+        <div className="relative bg-neutral-50 dark:bg-neutral-900 w-full aspect-square max-h-[400px]">
           <button onClick={() => router.back()}
             className="absolute top-4 left-4 z-10 w-10 h-10 bg-white/80 dark:bg-neutral-800/80 backdrop-blur rounded-full flex items-center justify-center shadow-sm text-neutral-700 dark:text-neutral-200">
             <ArrowLeft size={18} />
@@ -567,11 +579,17 @@ export function ProductDetail({ product, userId: serverUserId }: { product: any;
             </button>
           </div>
           <AnimatePresence mode="wait">
-            <motion.img key={active} src={images[active]} alt={product.title}
-              className="w-full h-full object-contain p-4 mix-blend-multiply dark:mix-blend-normal"
-              style={{ maxHeight: "400px" }}
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
-              onClick={() => setLightbox(true)} />
+            <motion.img 
+              key={active} 
+              src={images[active]} 
+              alt={product.title}
+              className="absolute inset-0 w-full h-full object-contain p-4 mix-blend-multiply dark:mix-blend-normal"
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              transition={{ duration: 0.2 }}
+              onClick={() => setLightbox(true)} 
+            />
           </AnimatePresence>
           {images.length > 1 && (
             <>

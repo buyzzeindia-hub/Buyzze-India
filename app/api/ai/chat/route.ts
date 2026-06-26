@@ -499,8 +499,20 @@ export async function POST(req: Request) {
       throw new Error('JSON_PARSE_FAIL');
     }
 
-    const content = (parsed?.message as { content?: string })?.content?.trim();
-    if (!content) throw new Error('EMPTY_RESPONSE');
+    // Support both Ollama format and custom server format
+    let content = "";
+
+    if (typeof (parsed as any)?.response === "string") {
+      content = (parsed as any).response.trim();
+    } else if (typeof (parsed as any)?.message?.content === "string") {
+      content = (parsed as any).message.content.trim();
+    }
+
+    if (!content) {
+      console.error("[AI Error] EMPTY_RESPONSE");
+      console.error("[AI Raw Response]", parsed);
+      throw new Error('EMPTY_RESPONSE');
+    }
 
     aiText = content;
   } catch (err: unknown) {

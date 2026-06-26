@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { MapPin, ChevronRight, Zap } from "lucide-react";
+import { MapPin, ChevronRight } from "lucide-react";
 
 type Props = {
   productId: string | number;
@@ -74,20 +74,20 @@ function SliderRow({
         </button>
       </div>
 
-      {/* Products Carousel */}
+      {/* Products Carousel - Fixed stretching issue here */}
       <div className="flex overflow-x-auto gap-3 snap-x snap-mandatory scrollbar-hide pb-2 relative z-10 items-stretch">
         {items.map((item) => (
           <div
             key={item.id}
             onClick={() => { router.push(`/products/${item.id}`); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-            className="snap-start shrink-0 w-[135px] md:w-[160px] bg-white dark:bg-[#1a1a1a] rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)] overflow-hidden cursor-pointer hover:-translate-y-1 transition-transform duration-300 flex flex-col group border border-transparent dark:border-neutral-800"
+            className="snap-start shrink-0 w-[135px] md:w-[160px] h-full bg-white dark:bg-[#1a1a1a] rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.12)] overflow-hidden cursor-pointer hover:-translate-y-1 transition-transform duration-300 flex flex-col group border border-transparent dark:border-neutral-800"
           >
-            {/* Image Box */}
-            <div className="relative w-full aspect-[4/5] bg-slate-50/80 dark:bg-[#111] p-3 flex items-center justify-center group-hover:bg-slate-100 dark:group-hover:bg-black transition-colors">
+            {/* Image Box - Strictly locked to exact height and shrink-0 so it NEVER stretches vertically */}
+            <div className="relative w-full h-[135px] md:h-[160px] shrink-0 bg-slate-50/80 dark:bg-[#111] p-3 flex items-center justify-center group-hover:bg-slate-100 dark:group-hover:bg-black transition-colors">
               <img
                 src={item.images?.[0] || "/placeholder.png"}
                 alt={item.title}
-                className="max-w-full max-h-full object-contain mix-blend-multiply dark:mix-blend-normal drop-shadow-sm group-hover:scale-105 transition-transform duration-300"
+                className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal drop-shadow-sm group-hover:scale-105 transition-transform duration-300"
               />
               {item.condition && (
                 <div className="absolute top-1.5 left-1.5 bg-white/95 dark:bg-neutral-800/95 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-widest text-neutral-800 dark:text-neutral-200 shadow-sm border border-neutral-200 dark:border-neutral-700">
@@ -108,7 +108,7 @@ function SliderRow({
                   {item.title}
                 </p>
               </div>
-              <div>
+              <div className="mt-1">
                 <p className="text-[15px] md:text-base font-black text-neutral-900 dark:text-white tracking-tight">
                   ₹{Number(item.price).toLocaleString("en-IN")}
                 </p>
@@ -177,7 +177,7 @@ export function SimilarProducts({ productId, brand, category, price, city, state
       <div className="flex overflow-x-auto gap-3 pb-2 scrollbar-hide">
         {[1, 2, 3, 4].map(i => (
           <div key={i} className="shrink-0 w-[135px] md:w-[160px] bg-white dark:bg-neutral-900 rounded-xl border border-neutral-100 dark:border-neutral-800 p-2 animate-pulse">
-            <div className="aspect-[4/5] bg-neutral-100 dark:bg-neutral-800 rounded-lg mb-3" />
+            <div className="w-full h-[120px] md:h-[145px] shrink-0 bg-neutral-100 dark:bg-neutral-800 rounded-lg mb-3" />
             <div className="h-2 w-1/3 bg-neutral-100 dark:bg-neutral-800 rounded-full mb-2" />
             <div className="h-3 w-full bg-neutral-100 dark:bg-neutral-800 rounded-full mb-1" />
             <div className="h-3 w-2/3 bg-neutral-100 dark:bg-neutral-800 rounded-full mb-3" />
