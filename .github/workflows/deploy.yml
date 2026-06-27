@@ -33,7 +33,9 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       # OpenNext code ko Cloudflare ke liye build karega
-      - name: Build OpenNext
-        run: npx opennextjs-cloudflare build
+      - name: Build Next.js Project
+        run: npm run build
         env:
           NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+          NEXT_PUBLIC_TRUECALLER_APP_KEY: ${{ secrets.NEXT_PUBLIC_TRUECALLER_APP_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
