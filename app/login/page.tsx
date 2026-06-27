@@ -27,7 +27,7 @@ export default function LoginPage() {
   const [pollingStatus, setPollingStatus] = useState("");
   const googleBtnRef = useRef<HTMLDivElement>(null);
 
-  const TRUECALLER_APP_KEY = process.env.NEXT_PUBLIC_TRUECALLER_APP_KEY!;
+  const TRUECALLER_APP_KEY = LAq1x7b1c1e08eb3f42d2a95f96d6b6f44e75!;
 
   useEffect(() => {
     setMounted(true);
@@ -47,7 +47,7 @@ export default function LoginPage() {
       if (!googleAuth) return;
 
       googleAuth.initialize({
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+        client_id: 53474173239-heqkmd2ht8jt8ptoor29bcilmipsjnd6.apps.googleusercontent.com!,
         callback: handleGoogleResponse,
       });
 
