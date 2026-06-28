@@ -80,7 +80,7 @@ export default function FastAuthPopup() {
       if (!googleAuth) return;
 
       googleAuth.initialize({
-        client_id: 53474173239-heqkmd2ht8jt8ptoor29bcilmipsjnd6.apps.googleusercontent.com!,
+        client_id: "53474173239-heqkmd2ht8jt8ptoor29bcilmipsjnd6.apps.googleusercontent.com"
         callback: handleGoogleResponse,
       });
 

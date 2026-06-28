@@ -47,9 +47,9 @@ export default function SignupPage() {
     try {
       const googleAuth = (window as any).google?.accounts?.id;
       if (!googleAuth) return;
-
+ 
       googleAuth.initialize({
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+        client_id: "53474173239-heqkmd2ht8jt8ptoor29bcilmipsjnd6.apps.googleusercontent.com" 
         callback: handleGoogleResponse,
       });
 
