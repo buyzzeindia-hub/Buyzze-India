@@ -29,7 +29,7 @@ export default function SignupPage() {
   const [pollingStatus, setPollingStatus] = useState("");
   const googleBtnRef = useRef<HTMLDivElement>(null);
 
-  const TRUECALLER_APP_KEY = LAq1x7b1c1e08eb3f42d2a95f96d6b6f44e75!;
+  const TRUECALLER_APP_KEY = "LAq1x7b1c1e08eb3f42d2a95f96d6b6f44e75",
 
   useEffect(() => {
     setMounted(true);
@@ -49,7 +49,7 @@ export default function SignupPage() {
       if (!googleAuth) return;
  
       googleAuth.initialize({
-        client_id: "53474173239-heqkmd2ht8jt8ptoor29bcilmipsjnd6.apps.googleusercontent.com" 
+        client_id: "53474173239-heqkmd2ht8jt8ptoor29bcilmipsjnd6.apps.googleusercontent.com", 
         callback: handleGoogleResponse,
       });
 
