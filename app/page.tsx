@@ -8,6 +8,7 @@ import ListingArea from "./components/ListingArea";
 import FloatingNav from "@/components/FloatingNav";
 import BuyzzeChat from "@/components/BuyzzeChat";
 import FavoriteButton from "@/components/FavoriteButton";
+import AIVideoSlider from "@/components/AIVideoSlider"; // Path check kar lena agar folder alag ho
 import Link from "next/link";
 import Image from "next/image";
 import { useTheme } from "next-themes";
@@ -645,6 +646,8 @@ export default function HomePage() {
       {isAllMode && <HeroSlider />}
 
       <BrandFilter activeBrand={activeBrand} setActiveBrand={setActiveBrand} />
+      
+      <AIVideoSlider />
 
       <div className="mt-4 mb-2"><NearbyToggle /></div>
 
