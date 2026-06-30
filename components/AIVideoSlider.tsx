@@ -81,9 +81,9 @@ const AIVideoCard = ({ video }) => {
 
 // Data array
 const aiVideos = [
-  { id: 1, src: "/videos/scam-free-ad.mp4" },
-  { id: 2, src: "/videos/verified-seller-ad.mp4" },
-  { id: 3, src: "/videos/ai-pricing-ad.mp4" },
+  { id: 1, src: "/Videos/scam-free-ad.mp4" },
+  { id: 2, src: "/Videos/verified-seller-ad.mp4" },
+  { id: 3, src: "/Videos/ai-pricing-ad.mp4" },
 ];
 
 export default function AIVideoSlider() {
