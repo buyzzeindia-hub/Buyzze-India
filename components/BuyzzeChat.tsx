@@ -1,68 +1,156 @@
-// Full copy-paste code for BuyzzeChat.tsx
 "use client";
-import FloatingNav from "./FloatingNav";
-import { DotLottiePlayer } from "@dotlottie/react-player";
-import { useBuyzzeAuth } from "@/hooks/useBuyzzeAuth";
+import { useUser } from "@clerk/nextjs";
+import { X, Sparkles, Bot, ChevronDown } from "lucide-react";
 
-export default function Page() {
-  const { user, isLoaded } = useBuyzzeAuth();
+interface Props {
+  isOpen: boolean;
+  onClose: () => void;
+  isDesktop: boolean;
+  isFloating?: boolean;
+}
 
-  // Show a clean loading state until auth is loaded
-  if (!isLoaded || !user) {
-    return (
-        <div className="relative min-h-screen">
-          <FloatingNav />
-          <div className="flex-1 flex items-center justify-center min-h-[calc(100vh-140px)]">
-              <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-          </div>
-        </div>
-    );
-  }
+export default function BuyzzeChat({ isOpen, onClose, isDesktop, isFloating = false }: Props) {
+  const { user } = useUser();
 
-  // Greeting logic
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good Morning" : hour < 18 ? "Good Afternoon" : "Good Evening";
-  const name = user?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
+  // ── Greeting ──
+  const h = new Date().getHours();
+  const greeting    = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : h < 21 ? "Good evening" : "Good night";
+  const displayName = user?.firstName || "there";
+
+  // ── Drawer layout ──
+  const drawerStyle: React.CSSProperties =
+    isDesktop && isFloating
+      ? { width: "100%", height: "100%", background: "#0a0a0f", display: "flex",
+          flexDirection: "column", overflow: "hidden", borderRadius: "24px",
+          border: "1px solid rgba(255,255,255,0.1)" }
+      : isDesktop
+      ? { position: "relative", width: "100%", height: "100%", minHeight: "100vh",
+          background: "#0a0a0f", borderLeft: "1px solid rgba(255,255,255,0.07)",
+          display: "flex", flexDirection: "column", overflow: "hidden",
+          animation: isOpen ? "zSlideRight 0.38s cubic-bezier(0.4,0,0.2,1) forwards" : "none" }
+      : { position: "fixed", bottom: 0, left: 0, right: 0, height: "94dvh",
+          background: "#0a0a0f", zIndex: 9991,
+          transform: isOpen ? "translateY(0)" : "translateY(100%)",
+          transition: "transform 0.4s cubic-bezier(0.4,0,0.2,1)",
+          borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column",
+          overflow: "hidden", paddingBottom: "env(safe-area-inset-bottom, 0px)" };
 
   return (
-    <div className="relative min-h-screen flex flex-col">
-      {/* ── Desktop/Global Header ── */}
-      <div className="w-full flex items-center justify-between p-6 px-8 border-b border-gray-100 dark:border-gray-800">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Buyzze AI Hunt</h1>
-          <button className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-full text-white text-sm font-semibold shadow-md active:scale-95 transition-all">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            Ask for Deals
+    <>
+      <style>{`
+        @keyframes zSlideRight {
+          from { opacity:0; transform:translateX(32px); }
+          to   { opacity:1; transform:translateX(0); }
+        }
+        @keyframes zPulseGreen {
+          0%,100% { box-shadow:0 0 0 0 rgba(34,197,94,0.5); }
+          50%     { box-shadow:0 0 0 5px rgba(34,197,94,0); }
+        }
+        .z-glow-green    { animation: zPulseGreen 2s ease infinite; }
+        .z-scrollbar-hide::-webkit-scrollbar { display:none; }
+        .z-scrollbar-hide { -ms-overflow-style:none; scrollbar-width:none; }
+      `}</style>
+
+      {/* Mobile backdrop */}
+      {!isDesktop && isOpen && (
+        <div onClick={onClose} style={{
+          position:"fixed", inset:0, background:"rgba(0,0,0,0.6)",
+          backdropFilter:"blur(8px)", zIndex:9990,
+        }} />
+      )}
+
+      <div style={drawerStyle}>
+        
+        {/* ── Top bar ── */}
+        <div style={{
+          background:"rgba(10,10,15,0.85)", backdropFilter:"blur(20px)",
+          borderBottom:"1px solid rgba(255,255,255,0.06)",
+          padding:"12px 16px", position:"sticky", top:0, zIndex:10,
+          display:"flex", alignItems:"center", gap:12,
+        }}>
+          <div style={{
+            width:28, height:28, borderRadius:"50%",
+            background:"linear-gradient(135deg, #4f6ef7, #7c3aed)",
+            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+          }}>
+            <Sparkles size={14} color="white" />
+          </div>
+          <span style={{
+            background:"linear-gradient(135deg, #4f6ef7, #7c3aed)",
+            WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
+            fontWeight:700, fontSize:13,
+          }}>ZzE AI</span>
+          <div style={{
+            width:8, height:8, borderRadius:"50%", background:"#22c55e",
+            marginLeft:-6, boxShadow:"0 0 0 2px rgba(10,10,15,0.8)",
+          }} className="z-glow-green" />
+          
+          <div style={{ flex:1 }} />
+          
+          <button onClick={onClose} style={{
+            background:"rgba(255,255,255,0.08)", border:"none", borderRadius:8,
+            padding:8, cursor:"pointer", color:"#fff",
+            display:"flex", alignItems:"center", justifyContent:"center",
+          }}>
+            {isDesktop ? <X size={16} /> : <ChevronDown size={18} />}
           </button>
-      </div>
-
-      {/* ── Main Content Area ── */}
-      <main className="flex-1 max-w-7xl mx-auto p-6 flex flex-col items-center justify-center min-h-[calc(100vh-160px)]">
-        <div className="flex flex-col items-center justify-center text-center p-8 w-full max-w-xl mx-auto">
-          
-          <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
-            <DotLottiePlayer src="/ai.lottie" autoplay loop className="w-16 h-16" />
-          </div>
-          
-          <h2 className="text-3xl font-black text-gray-900 dark:text-white mb-2">{greeting}, {name}!</h2>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-10 max-w-[320px]">
-            I'm ZZE-AI, your smart trading companion. I'm getting ready to help you hunt the best deals.
-          </p>
-          
-          <div className="w-full bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-2xl p-8 relative overflow-hidden shadow-sm">
-            <div className="text-blue-600 dark:text-blue-400 mb-3">
-              <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">Coming Soon 🚀</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium leading-relaxed max-w-[360px] mx-auto">
-              Our AI chat is currently in the lab. We're training our models to give you accurate pricing, negotiation tips, and scam protection!
-            </p>
-          </div>
-
         </div>
-      </main>
 
-      {/* ── Navigation ── */}
-      <FloatingNav />
-    </div>
+        {/* ── Main Content Area ── */}
+        <div className="z-scrollbar-hide" style={{
+          flex:1, overflowY:"auto",
+          padding: "20px 16px",
+          display:"flex", flexDirection:"column",
+        }}>
+            <div style={{
+              display:"flex", flexDirection:"column", alignItems:"center",
+              justifyContent:"center", minHeight:"100%", padding:"20px 24px",
+            }}>
+              
+              <div style={{ textAlign:"center", marginBottom:40, width:"100%" }}>
+                <h1 style={{ fontSize:32, fontWeight:700, color:"#fff", marginBottom:8, letterSpacing:"-0.02em" }}>
+                  {greeting},{" "}
+                  <span style={{
+                    background:"linear-gradient(135deg, #4f6ef7, #7c3aed)",
+                    WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
+                  }}>{displayName}</span>
+                </h1>
+                <p style={{ color:"rgba(255,255,255,0.6)", fontSize:16 }}>
+                  How can I help you today?
+                </p>
+              </div>
+
+              {/* ── COMING SOON BOX (Replacing Input Area) ── */}
+              <div style={{ width:"100%", maxWidth:480, position:"relative" }}>
+                <div style={{
+                  width:"100%", boxSizing:"border-box",
+                  background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)",
+                  borderRadius:24, padding:"32px 20px",
+                  display: "flex", flexDirection: "column", alignItems: "center",
+                  textAlign: "center",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.2)"
+                }}>
+                  <div style={{
+                    width:56, height:56, borderRadius:"50%",
+                    background:"rgba(79,110,247,0.1)",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    marginBottom: 16, border: "1px solid rgba(79,110,247,0.2)"
+                  }}>
+                    <Bot size={28} color="#60a5fa" />
+                  </div>
+                  <h3 style={{ fontSize: 18, fontWeight: 600, color: "#fff", marginBottom: 8 }}>
+                    AI Chat is Coming Soon 🚀
+                  </h3>
+                  <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", lineHeight: 1.6, maxWidth: 300 }}>
+                    We are training ZzE AI to help you hunt the best deals, negotiate prices, and stay safe from scams.
+                  </p>
+                </div>
+              </div>
+
+            </div>
+        </div>
+
+      </div>
+    </>
   );
 }
