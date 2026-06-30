@@ -1,6 +1,6 @@
 "use client";
 import { useUser } from "@clerk/nextjs";
-import { X, Sparkles, Bot, ChevronDown } from "lucide-react";
+import { X, Sparkles, Bot } from "lucide-react";
 
 interface Props {
   isOpen: boolean;
@@ -28,12 +28,26 @@ export default function BuyzzeChat({ isOpen, onClose, isDesktop, isFloating = fa
           background: "#0a0a0f", borderLeft: "1px solid rgba(255,255,255,0.07)",
           display: "flex", flexDirection: "column", overflow: "hidden",
           animation: isOpen ? "zSlideRight 0.38s cubic-bezier(0.4,0,0.2,1) forwards" : "none" }
-      : { position: "fixed", bottom: 0, left: 0, right: 0, height: "94dvh",
-          background: "#0a0a0f", zIndex: 9991,
-          transform: isOpen ? "translateY(0)" : "translateY(100%)",
-          transition: "transform 0.4s cubic-bezier(0.4,0,0.2,1)",
-          borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column",
-          overflow: "hidden", paddingBottom: "env(safe-area-inset-bottom, 0px)" };
+      : { 
+          // 📱 MOBILE STYLE: Compact Popup with Left-to-Right Slide
+          position: "fixed", 
+          top: "50%", 
+          left: isOpen ? "50%" : "-100%", // Left se slide hoke center mein aayega
+          transform: "translate(-50%, -50%)",
+          width: "90%", 
+          maxWidth: "340px",
+          height: "auto",
+          maxHeight: "85vh",
+          background: "#0a0a0f", 
+          zIndex: 9991,
+          transition: "left 0.4s cubic-bezier(0.34, 1.1, 0.64, 1)", // Smooth spring bounce
+          borderRadius: "24px", 
+          display: "flex", 
+          flexDirection: "column",
+          overflow: "hidden", 
+          border: "1px solid rgba(255,255,255,0.1)",
+          boxShadow: "0 25px 50px rgba(0,0,0,0.5)"
+        };
 
   return (
     <>
@@ -52,10 +66,13 @@ export default function BuyzzeChat({ isOpen, onClose, isDesktop, isFloating = fa
       `}</style>
 
       {/* Mobile backdrop */}
-      {!isDesktop && isOpen && (
+      {!isDesktop && (
         <div onClick={onClose} style={{
           position:"fixed", inset:0, background:"rgba(0,0,0,0.6)",
-          backdropFilter:"blur(8px)", zIndex:9990,
+          backdropFilter:"blur(4px)", zIndex:9990,
+          opacity: isOpen ? 1 : 0,
+          pointerEvents: isOpen ? "auto" : "none",
+          transition: "opacity 0.3s ease"
         }} />
       )}
 
@@ -92,7 +109,8 @@ export default function BuyzzeChat({ isOpen, onClose, isDesktop, isFloating = fa
             padding:8, cursor:"pointer", color:"#fff",
             display:"flex", alignItems:"center", justifyContent:"center",
           }}>
-            {isDesktop ? <X size={16} /> : <ChevronDown size={18} />}
+            {/* Phone aur Desktop dono me ab X button hi dikhega */}
+            <X size={16} /> 
           </button>
         </div>
 
@@ -104,28 +122,28 @@ export default function BuyzzeChat({ isOpen, onClose, isDesktop, isFloating = fa
         }}>
             <div style={{
               display:"flex", flexDirection:"column", alignItems:"center",
-              justifyContent:"center", minHeight:"100%", padding:"20px 24px",
+              justifyContent:"center", padding:"10px 10px 20px",
             }}>
               
-              <div style={{ textAlign:"center", marginBottom:40, width:"100%" }}>
-                <h1 style={{ fontSize:32, fontWeight:700, color:"#fff", marginBottom:8, letterSpacing:"-0.02em" }}>
+              <div style={{ textAlign:"center", marginBottom:30, width:"100%" }}>
+                <h1 style={{ fontSize: isDesktop ? 32 : 24, fontWeight:700, color:"#fff", marginBottom:8, letterSpacing:"-0.02em" }}>
                   {greeting},{" "}
                   <span style={{
                     background:"linear-gradient(135deg, #4f6ef7, #7c3aed)",
                     WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
                   }}>{displayName}</span>
                 </h1>
-                <p style={{ color:"rgba(255,255,255,0.6)", fontSize:16 }}>
+                <p style={{ color:"rgba(255,255,255,0.6)", fontSize: isDesktop ? 16 : 14 }}>
                   How can I help you today?
                 </p>
               </div>
 
-              {/* ── COMING SOON BOX (Replacing Input Area) ── */}
+              {/* ── COMING SOON BOX ── */}
               <div style={{ width:"100%", maxWidth:480, position:"relative" }}>
                 <div style={{
                   width:"100%", boxSizing:"border-box",
                   background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)",
-                  borderRadius:24, padding:"32px 20px",
+                  borderRadius:24, padding: isDesktop ? "32px 20px" : "24px 16px",
                   display: "flex", flexDirection: "column", alignItems: "center",
                   textAlign: "center",
                   boxShadow: "0 8px 32px rgba(0,0,0,0.2)"
@@ -138,7 +156,7 @@ export default function BuyzzeChat({ isOpen, onClose, isDesktop, isFloating = fa
                   }}>
                     <Bot size={28} color="#60a5fa" />
                   </div>
-                  <h3 style={{ fontSize: 18, fontWeight: 600, color: "#fff", marginBottom: 8 }}>
+                  <h3 style={{ fontSize: isDesktop ? 18 : 16, fontWeight: 600, color: "#fff", marginBottom: 8 }}>
                     AI Chat is Coming Soon 🚀
                   </h3>
                   <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", lineHeight: 1.6, maxWidth: 300 }}>
