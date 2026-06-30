@@ -646,14 +646,13 @@ export default function HomePage() {
       {isAllMode && <HeroSlider />}
 
       <BrandFilter activeBrand={activeBrand} setActiveBrand={setActiveBrand} />
-      
-      <AIVideoSlider />
 
       <div className="mt-4 mb-2"><NearbyToggle /></div>
 
       {isAllMode && <RecentlyAddedSection products={allProducts} loading={loading} />}
       {isAllMode && <ConditionSection />}
       {isAllMode && <div className="mt-6"><SellCTA /></div>}
+      {isAllMode && <AIVideoSlider />}
       {isAllMode && <TopBrandsSection brandProducts={brandProducts} loading={loading} />}
 
       <div className="mt-6">

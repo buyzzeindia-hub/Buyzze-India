@@ -1,20 +1,33 @@
 "use client";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 
 // Video sub-component
 const AIVideoCard = ({ video }) => {
+  const videoRef = useRef(null);
   const [isMuted, setIsMuted] = useState(true);
 
+  // Mobile me autoplay strictly chalane ke liye
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.play().catch((error) => {
+        console.log("Autoplay was prevented:", error);
+      });
+    }
+  }, []);
+
   const toggleAudio = () => {
-    setIsMuted(!isMuted);
+    if (videoRef.current) {
+      videoRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
+    }
   };
 
   return (
     <div 
       className="
         snap-center shrink-0 
-        w-[85vw] sm:w-[400px] md:w-full /* Mobile me 85vw width, PC me full grid column */
+        w-[75vw] sm:w-[320px] md:w-full /* Mobile me 75vw width taki side videos ke corners dikhein */
         aspect-video /* 16:9 Aspect Ratio */
         relative rounded-[20px] overflow-hidden 
         bg-gray-900 shadow-md shadow-black/5 
@@ -23,11 +36,13 @@ const AIVideoCard = ({ video }) => {
       "
     >
       <video
+        ref={videoRef}
         src={video.src}
         autoPlay
         loop
-        muted={isMuted}
+        muted // Initial autoplay ke liye muted hona zaroori hai
         playsInline
+        webkit-playsinline="true"
         className="absolute inset-0 w-full h-full object-cover opacity-90"
       />
       
@@ -85,27 +100,21 @@ export default function AIVideoSlider() {
       `}</style>
 
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6">
-        
-        {/* NAYA BEIGE BOX JISKE CORNERS HIGHLY CURVED HAIN */}
+        {/* Beige box hata diya hai, ab videos direct container me hain */}
         <div className="
-          bg-[#F5F0E6] dark:bg-[#16181c] 
-          rounded-[40px] md:rounded-[48px] 
-          p-5 md:p-8 
-          shadow-sm border border-[#ebe5da] dark:border-[#22252a]
+          flex md:grid md:grid-cols-3 
+          gap-4 md:gap-6 
+          overflow-x-auto md:overflow-visible 
+          snap-x snap-mandatory md:snap-none 
+          no-scrollbar
         ">
-          <div className="
-            flex md:grid md:grid-cols-3 
-            gap-4 md:gap-6 
-            overflow-x-auto md:overflow-visible 
-            snap-x snap-mandatory md:snap-none 
-            no-scrollbar
-          ">
-            {aiVideos.map((video) => (
-              <AIVideoCard key={video.id} video={video} />
-            ))}
-          </div>
+          {aiVideos.map((video) => (
+            <AIVideoCard key={video.id} video={video} />
+          ))}
+          
+          {/* Mobile scroll padding fix */}
+          <div className="shrink-0 w-1 md:hidden" />
         </div>
-
       </div>
     </section>
   );
