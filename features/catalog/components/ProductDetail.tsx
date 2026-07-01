@@ -378,14 +378,12 @@ export function ProductDetail({ product, userId: serverUserId }: { product: any;
         </div>
 
         <div className="max-w-6xl mx-auto px-6 py-7">
-          <div className="flex gap-7 items-start"> {/* items-start added */}
+          <div className="flex gap-7 items-start">
 
             {/* LEFT: Image + Thumbnails */}
-            {/* shrinking disabled with shrink-0 so it never disappears */}
             <div className="w-[42%] shrink-0 space-y-3 sticky top-6 self-start">
               <div className="bg-white dark:bg-[#111] rounded-2xl border border-neutral-200 dark:border-neutral-800/60 overflow-hidden shadow-sm transition-colors">
                 
-                {/* Changed to aspect-square and added absolute inset-0 to prevent collapsing */}
                 <div className="relative w-full aspect-square overflow-hidden bg-neutral-50 dark:bg-[#0a0a0a]">
                   <AnimatePresence mode="wait">
                     <motion.div 
@@ -428,7 +426,6 @@ export function ProductDetail({ product, userId: serverUserId }: { product: any;
             </div>
 
             {/* RIGHT: Product Details */}
-            {/* Added min-w-0 so it doesn't push the image out of screen */}
             <div className="flex-1 min-w-0 space-y-5">
 
               {/* Title Card */}
@@ -456,9 +453,9 @@ export function ProductDetail({ product, userId: serverUserId }: { product: any;
                     </div>
                   )}
                 </div>
-                {(product.city || product.state) && (
+                {(product.address || product.city || product.state) && (
                   <div className="flex items-center gap-1.5 mt-4 text-[13px] font-medium text-neutral-500 dark:text-neutral-400">
-                    <MapPin size={14} /><span>{[product.city, product.state, product.pincode].filter(Boolean).join(", ")}</span>
+                    <MapPin size={14} /><span>{[product.address, product.city, product.state, product.pincode].filter(Boolean).join(", ")}</span>
                   </div>
                 )}
               </div>
@@ -522,10 +519,10 @@ export function ProductDetail({ product, userId: serverUserId }: { product: any;
               <div className="bg-white dark:bg-[#111] rounded-2xl border border-neutral-200 dark:border-neutral-800/60 p-6 shadow-sm">
                 <p className="text-[11px] font-bold text-neutral-400 uppercase tracking-widest mb-4">Seller Information</p>
                 <SellerMiniCard sellerId={product.owner_id} />
-                {(product.city || product.state || product.pincode) && (
+                {(product.address || product.city || product.state || product.pincode) && (
                   <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800 flex items-start gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
                     <MapPin size={14} className="shrink-0 mt-0.5" />
-                    <span>{[product.city, product.state, product.pincode].filter(Boolean).join(", ")}</span>
+                    <span>{[product.address, product.city, product.state, product.pincode].filter(Boolean).join(", ")}</span>
                   </div>
                 )}
               </div>
@@ -650,9 +647,9 @@ export function ProductDetail({ product, userId: serverUserId }: { product: any;
                 </div>
               )}
             </div>
-            {(product.city || product.state) && (
+            {(product.address || product.city || product.state) && (
               <div className="flex items-center gap-1.5 mt-3 text-xs text-neutral-500 dark:text-neutral-400 font-medium">
-                <MapPin size={13} /><span>{[product.city, product.state].filter(Boolean).join(", ")}</span>
+                <MapPin size={13} /><span>{[product.address, product.city, product.state, product.pincode].filter(Boolean).join(", ")}</span>
               </div>
             )}
           </div>
@@ -705,10 +702,10 @@ export function ProductDetail({ product, userId: serverUserId }: { product: any;
             <p className="text-[11px] font-bold text-neutral-400 uppercase tracking-widest mb-3">Seller</p>
             <div className="bg-neutral-50 dark:bg-neutral-800/30 rounded-xl px-4 py-4 border border-neutral-100 dark:border-neutral-800/50">
               <SellerMiniCard sellerId={product.owner_id} />
-              {(product.city || product.state || product.pincode) && (
+              {(product.address || product.city || product.state || product.pincode) && (
                 <div className="mt-3.5 pt-3.5 border-t border-neutral-200 dark:border-neutral-700/50 flex items-start gap-1.5 text-xs text-neutral-500 dark:text-neutral-400 font-medium">
                   <MapPin size={14} className="shrink-0 mt-0.5" />
-                  <span>{[product.city, product.state, product.pincode].filter(Boolean).join(", ")}</span>
+                  <span>{[product.address, product.city, product.state, product.pincode].filter(Boolean).join(", ")}</span>
                 </div>
               )}
             </div>
