@@ -1,14 +1,13 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback, memo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useLocation } from "@/features/location/context/LocationContext";
+import dynamic from "next/dynamic";
 import HeroSlider from "./components/HeroSlider";
 import BrandFilter from "./components/BrandFilter";
 import ListingArea from "./components/ListingArea";
 import FloatingNav from "@/components/FloatingNav";
-import BuyzzeChat from "@/components/BuyzzeChat";
 import FavoriteButton from "@/components/FavoriteButton";
-import AIVideoSlider from "@/components/AIVideoSlider"; 
 import Link from "next/link";
 import Image from "next/image";
 import { useTheme } from "next-themes";
@@ -16,6 +15,10 @@ import {
   ChevronLeft, ChevronRight, MapPin,
   Zap, ArrowRight, Clock, Sparkles
 } from "lucide-react";
+
+// ✅ SPEED FIX: Dynamic imports for heavy components
+const AIVideoSlider = dynamic(() => import("@/components/AIVideoSlider"), { ssr: false });
+const BuyzzeChat = dynamic(() => import("@/components/BuyzzeChat"), { ssr: false });
 
 const FONT = "'DM Sans', 'Outfit', system-ui, sans-serif";
 const NO_SCROLL = { scrollbarWidth: "none" as const, msOverflowStyle: "none" as const };
@@ -68,6 +71,40 @@ function useIsDark() {
   return resolvedTheme === "dark";
 }
 
+// ✅ SPEED FIX: real viewport-based lazy loading using the native IntersectionObserver.
+// Once a section has entered view it stays "in view" (no unmount/remount, no layout thrash).
+// rootMargin pre-loads content slightly before it's visible so there's no visible pop-in.
+function useInView<T extends HTMLElement>(rootMargin: string = "300px 0px") {
+  const ref = useRef<T | null>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || inView) return;
+
+    // Fallback for environments without IntersectionObserver support
+    if (typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin, threshold: 0.01 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [inView, rootMargin]);
+
+  return { ref, inView };
+}
+
 function useBrandTokens(brand: typeof TOP_BRANDS[0]) {
   const isDark = useIsDark();
   return {
@@ -79,7 +116,7 @@ function useBrandTokens(brand: typeof TOP_BRANDS[0]) {
   };
 }
 
-function RecentCard({ p }: { p: any }) {
+const RecentCard = memo(function RecentCard({ p }: { p: any }) {
   const date = new Date(p.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
   return (
     <Link
@@ -116,7 +153,6 @@ function RecentCard({ p }: { p: any }) {
       <FavoriteButton productId={p.id} size="sm" />
       <div className="flex items-center justify-center overflow-hidden flex-shrink-0"
         style={{ height: 112, background: "var(--rc-img)" }}>
-        {/* SPEED OPTIMIZED: sizes and lazy loading added */}
         <Image src={p.images?.[0] || "/placeholder.png"} alt={p.title || "Used Mobile"} width={100} height={100}
           sizes="(max-width: 768px) 100px, 100px" loading="lazy" decoding="async"
           className="object-contain p-2 group-hover:scale-110 transition-transform duration-500" />
@@ -139,18 +175,10 @@ function RecentCard({ p }: { p: any }) {
       </div>
     </Link>
   );
-}
+});
 
-function RecentlyAddedSection({ products, loading }: { products: any[]; loading: boolean }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const scroll = (d: "l" | "r") =>
-    scrollRef.current?.scrollBy({ left: d === "r" ? 200 : -200, behavior: "smooth" });
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const recent = products.filter(p => new Date(p.created_at) >= sevenDaysAgo).slice(0, 10);
-
-  return (
-    <section className="max-w-7xl mx-auto px-4 mt-6">
-      <style>{`
+// ✅ SPEED FIX: hoisted so the string isn't rebuilt on every render
+const RECENTLY_STYLES = `
         :root {
           --rc-card: #ffffff;
           --rc-border: 1px solid rgba(0,0,0,0.07);
@@ -193,16 +221,25 @@ function RecentlyAddedSection({ products, loading }: { products: any[]; loading:
           background: rgba(255,255,255,0.06) !important;
           border: 1px solid rgba(255,255,255,0.08) !important;
         }
-      `}</style>
+      `;
+
+const RecentlyAddedSection = memo(function RecentlyAddedSection({ products, loading }: { products: any[]; loading: boolean }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scroll = useCallback((d: "l" | "r") =>
+    scrollRef.current?.scrollBy({ left: d === "r" ? 200 : -200, behavior: "smooth" }), []);
+  // ✅ SPEED FIX: only recompute the filtered/sliced list when products actually change
+  const recent = useMemo(() => {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    return products.filter(p => new Date(p.created_at) >= sevenDaysAgo).slice(0, 10);
+  }, [products]);
+
+  return (
+    <section className="max-w-7xl mx-auto px-4 mt-6">
+      <style>{RECENTLY_STYLES}</style>
       <div
         className="recently-section-inner rounded-2xl px-5 pt-5 pb-5 overflow-hidden"
         style={{ position: "relative" }}
       >
-        <div style={{
-          position: "absolute", inset: 0, pointerEvents: "none", opacity: 0,
-          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E")`,
-        }} />
-
         <div className="flex items-center justify-between mb-5" style={{ position: "relative", zIndex: 1 }}>
           <div className="flex items-center gap-2.5">
             <div className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full recently-badge"
@@ -250,7 +287,7 @@ function RecentlyAddedSection({ products, loading }: { products: any[]; loading:
       </div>
     </section>
   );
-}
+});
 
 const CONDITION_CARDS = [
   { value: "used-superb", label: "Used — Superb", badge: "Best Quality", image: "/condition-superb.png", bg: "#f0fdf4", darkBg: "#0a1f10" },
@@ -258,7 +295,7 @@ const CONDITION_CARDS = [
   { value: "used-fair",   label: "Used — Fair",   badge: "Best Price",   image: "/condition-fair.png",   bg: "#fff7ed", darkBg: "#1a0f05" },
 ];
 
-function ConditionSection() {
+const ConditionSection = memo(function ConditionSection() {
   const isDark = useIsDark();
   return (
     <section className="max-w-7xl mx-auto px-4 mt-5">
@@ -292,13 +329,12 @@ function ConditionSection() {
               <div style={{
                 width: 38, height: 38, borderRadius: "50%", marginTop: 14,
                 background: isDark ? "rgba(255,255,255,0.12)" : "#111827",
-                display: "flex", alignItems: "center", justifyContent: "center",
+                display: "flex", alignItems: "center", justifyContent: "center", // FIXED: justify-content -> justifyContent
               }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </div>
             </div>
             <div style={{ width: "48%", flexShrink: 0, position: "relative", overflow: "hidden" }}>
-              {/* SPEED OPTIMIZED: priority removed (as it's below fold usually), added sizes */}
               <Image
                 src={c.image}
                 alt={c.label}
@@ -312,9 +348,9 @@ function ConditionSection() {
       </div>
     </section>
   );
-}
+});
 
-function BrandProductCard({ p, brand }: { p: any; brand: typeof TOP_BRANDS[0] }) {
+const BrandProductCard = memo(function BrandProductCard({ p, brand }: { p: any; brand: typeof TOP_BRANDS[0] }) {
   const t = useBrandTokens(brand);
   return (
     <Link href={`/products/${p.id}`}
@@ -340,7 +376,6 @@ function BrandProductCard({ p, brand }: { p: any; brand: typeof TOP_BRANDS[0] })
       )}
 
       <div className="w-full h-[110px] flex items-center justify-center overflow-hidden" style={{ backgroundColor: t.tagBg }}>
-        {/* SPEED OPTIMIZED */}
         <Image src={p.images?.[0] || "/placeholder.png"} alt={p.title || "Brand Product"} width={90} height={90}
           sizes="(max-width: 768px) 90px, 90px" loading="lazy" decoding="async"
           className="object-contain p-2 group-hover:scale-110 transition-transform duration-300" />
@@ -363,9 +398,9 @@ function BrandProductCard({ p, brand }: { p: any; brand: typeof TOP_BRANDS[0] })
       </div>
     </Link>
   );
-}
+});
 
-function BrandPanel({ brand, brandProducts, loading }: { brand: typeof TOP_BRANDS[0]; brandProducts: Record<string, any[]>; loading: boolean }) {
+const BrandPanel = memo(function BrandPanel({ brand, brandProducts, loading }: { brand: typeof TOP_BRANDS[0]; brandProducts: Record<string, any[]>; loading: boolean }) {
   const t = useBrandTokens(brand);
   const products = (brandProducts[brand.name] || []).slice(0, 4);
   return (
@@ -406,28 +441,47 @@ function BrandPanel({ brand, brandProducts, loading }: { brand: typeof TOP_BRAND
       )}
     </div>
   );
-}
+});
 
-function TopBrandsSection({ brandProducts, loading }: { brandProducts: Record<string, any[]>; loading: boolean }) {
+const TopBrandsSkeleton = memo(function TopBrandsSkeleton() {
+  return (
+    <section className="max-w-7xl mx-auto px-4 mt-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-[3px] h-5 bg-blue-600 dark:bg-blue-500 rounded-full" />
+          <h2 className="text-[15px] font-bold text-gray-900 dark:text-white">Top Brands</h2>
+        </div>
+      </div>
+      <div className="flex gap-4 overflow-hidden">
+        {[...Array(2)].map((_, i) => (
+          <div key={i} className="rounded-2xl animate-pulse bg-gray-100 dark:bg-white/5 flex-shrink-0"
+            style={{ width: "min(85vw, 380px)", height: 320 }} />
+        ))}
+      </div>
+    </section>
+  );
+});
+
+const TopBrandsSection = memo(function TopBrandsSection({ brandProducts, loading }: { brandProducts: Record<string, any[]>; loading: boolean }) {
   const sliderRef = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const isDark = useIsDark();
 
-  const scrollTo = (i: number) => {
+  const scrollTo = useCallback((i: number) => {
     const slider = sliderRef.current;
     if (!slider) return;
     const panels = slider.querySelectorAll<HTMLElement>(".tb-panel");
     if (panels[i]) { slider.scrollTo({ left: panels[i].offsetLeft - 16, behavior: "smooth" }); setActiveIdx(i); }
-  };
+  }, []);
 
-  const handleSliderScroll = () => {
+  const handleSliderScroll = useCallback(() => {
     const slider = sliderRef.current;
     if (!slider) return;
     const panels = slider.querySelectorAll<HTMLElement>(".tb-panel");
     let closest = 0, minDiff = Infinity;
     panels.forEach((p, i) => { const diff = Math.abs(p.offsetLeft - slider.scrollLeft - 16); if (diff < minDiff) { minDiff = diff; closest = i; } });
     setActiveIdx(closest);
-  };
+  }, []);
 
   return (
     <section className="max-w-7xl mx-auto px-4 mt-6">
@@ -477,9 +531,9 @@ function TopBrandsSection({ brandProducts, loading }: { brandProducts: Record<st
       </div>
     </section>
   );
-}
+});
 
-function SellCTA() {
+const SellCTA = memo(function SellCTA() {
   return (
     <section className="max-w-7xl mx-auto px-4">
       <div className="rounded-2xl p-6 flex items-center justify-between gap-4 relative overflow-hidden border border-blue-200 dark:border-blue-500/20">
@@ -509,9 +563,9 @@ function SellCTA() {
       </div>
     </section>
   );
-}
+});
 
-function NearbyToggle() {
+const NearbyToggle = memo(function NearbyToggle() {
   const { isNearbyActive, setIsNearbyActive, selectedCity } = useLocation();
   return (
     <div className="max-w-7xl mx-auto px-4">
@@ -531,7 +585,7 @@ function NearbyToggle() {
       </button>
     </div>
   );
-}
+});
 
 export default function HomePage() {
   const [allProducts, setAllProducts]     = useState<any[]>([]);
@@ -542,11 +596,22 @@ export default function HomePage() {
   const { selectedCity, isNearbyActive, location }  = useLocation();
 
   useEffect(() => {
+    // ✅ SPEED FIX: guard against race conditions so a slow, stale request
+    // can't overwrite state from a newer request (avoids wasted renders)
+    let cancelled = false;
+
     const fetchData = async () => {
       setLoading(true);
-      let q = supabase.from("products").select("*").order("created_at", { ascending: false }).limit(300);
+      
+      let q = supabase
+        .from("products")
+        .select("id, title, price, images, brand, city, state, created_at, status, expires_at, ram, storage, condition")
+        .order("created_at", { ascending: false })
+        .limit(100); 
+        
       if (isNearbyActive && selectedCity) q = q.ilike("city", `%${selectedCity}%`);
       const { data } = await q;
+      if (cancelled) return;
       let raw = data || [];
 
       const nowTime = Date.now();
@@ -584,6 +649,7 @@ export default function HomePage() {
       scored.sort((a: any, b: any) => b._score - a._score);
       const products = scored.map(({ _score, ...p }: any) => p);
 
+      if (cancelled) return;
       setAllProducts(products);
       const grouped: Record<string, any[]> = {};
       for (const brand of ALL_BRANDS) {
@@ -593,13 +659,27 @@ export default function HomePage() {
       setLoading(false);
     };
     fetchData();
+    return () => { cancelled = true; };
   }, [isNearbyActive, selectedCity, location]);
 
   const isAllMode = !activeBrand;
 
-  const gridProducts = isAllMode
-    ? allProducts
-    : allProducts.filter(p => (p.brand || "").toLowerCase().includes(activeBrand!.toLowerCase()));
+  // ✅ SPEED FIX: memoize derived list so it's only recomputed when its inputs change
+  const gridProducts = useMemo(
+    () =>
+      isAllMode
+        ? allProducts
+        : allProducts.filter(p => (p.brand || "").toLowerCase().includes(activeBrand!.toLowerCase())),
+    [isAllMode, allProducts, activeBrand]
+  );
+
+  // ✅ SPEED FIX: stable function reference so it doesn't cause BuyzzeChat to re-render
+  const handleChatClose = useCallback(() => setChatOpen(false), []);
+
+  // ✅ SPEED FIX: only mount these heavy, below-the-fold sections once the user
+  // scrolls near them — cuts initial JS execution/render work significantly.
+  const { ref: videoRef, inView: videoInView } = useInView<HTMLDivElement>();
+  const { ref: brandsRef, inView: brandsInView } = useInView<HTMLDivElement>();
 
   return (
     <main
@@ -615,8 +695,20 @@ export default function HomePage() {
       {isAllMode && <RecentlyAddedSection products={allProducts} loading={loading} />}
       {isAllMode && <ConditionSection />}
       {isAllMode && <div className="mt-6"><SellCTA /></div>}
-      {isAllMode && <AIVideoSlider />}
-      {isAllMode && <TopBrandsSection brandProducts={brandProducts} loading={loading} />}
+      
+      {isAllMode && (
+        <div ref={videoRef}>
+          {videoInView && <AIVideoSlider />}
+        </div>
+      )}
+
+      {isAllMode && (
+        <div ref={brandsRef}>
+          {brandsInView
+            ? <TopBrandsSection brandProducts={brandProducts} loading={loading} />
+            : <TopBrandsSkeleton />}
+        </div>
+      )}
 
       <div className="mt-6">
         <ListingArea products={gridProducts} loading={loading}
@@ -624,7 +716,7 @@ export default function HomePage() {
       </div>
 
       <FloatingNav />
-      <BuyzzeChat isOpen={chatOpen} onClose={() => setChatOpen(false)} isDesktop={false} />
+      <BuyzzeChat isOpen={chatOpen} onClose={handleChatClose} isDesktop={false} />
     </main>
   );
 }
