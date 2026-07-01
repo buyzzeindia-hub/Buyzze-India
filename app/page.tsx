@@ -8,7 +8,7 @@ import ListingArea from "./components/ListingArea";
 import FloatingNav from "@/components/FloatingNav";
 import BuyzzeChat from "@/components/BuyzzeChat";
 import FavoriteButton from "@/components/FavoriteButton";
-import AIVideoSlider from "@/components/AIVideoSlider"; // Path check kar lena agar folder alag ho
+import AIVideoSlider from "@/components/AIVideoSlider"; 
 import Link from "next/link";
 import Image from "next/image";
 import { useTheme } from "next-themes";
@@ -60,7 +60,6 @@ const TOP_BRANDS = [
   },
 ];
 
-// ─── Safe dark mode hook ──────────────────────────────────────────────────────
 function useIsDark() {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -80,9 +79,6 @@ function useBrandTokens(brand: typeof TOP_BRANDS[0]) {
   };
 }
 
-// ═══════════════════════════════════════════════════════════════
-// RECENTLY ADDED
-// ═══════════════════════════════════════════════════════════════
 function RecentCard({ p }: { p: any }) {
   const date = new Date(p.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
   return (
@@ -99,7 +95,6 @@ function RecentCard({ p }: { p: any }) {
         boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
       }}
     >
-      {/* Sold/Expired Overlay */}
       {p.status && p.status !== 'active' && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 30,
@@ -119,13 +114,13 @@ function RecentCard({ p }: { p: any }) {
       )}
 
       <FavoriteButton productId={p.id} size="sm" />
-      {/* Image — fixed height */}
       <div className="flex items-center justify-center overflow-hidden flex-shrink-0"
         style={{ height: 112, background: "var(--rc-img)" }}>
-        <Image src={p.images?.[0] || "/placeholder.png"} alt={p.title} width={100} height={100}
+        {/* SPEED OPTIMIZED: sizes and lazy loading added */}
+        <Image src={p.images?.[0] || "/placeholder.png"} alt={p.title || "Used Mobile"} width={100} height={100}
+          sizes="(max-width: 768px) 100px, 100px" loading="lazy" decoding="async"
           className="object-contain p-2 group-hover:scale-110 transition-transform duration-500" />
       </div>
-      {/* Text — fills rest */}
       <div className="p-3 flex flex-col flex-1">
         <p className="text-[9px] font-black uppercase tracking-[0.15em] truncate mb-1"
           style={{ color: "var(--rc-brand)" }}>{p.brand}</p>
@@ -174,7 +169,6 @@ function RecentlyAddedSection({ products, loading }: { products: any[]; loading:
           --rc-price: #ffffff;
           --rc-meta: #64748b;
         }
-        /* Recently added section dark bg */
         .recently-section-inner {
           background: linear-gradient(135deg, #fce4ec 0%, #f3e5f5 45%, #e8eaf6 100%);
           border: 1px solid rgba(219,39,119,0.1);
@@ -185,20 +179,16 @@ function RecentlyAddedSection({ products, loading }: { products: any[]; loading:
           border: 1px solid rgba(139,92,246,0.12);
           box-shadow: 0 8px 32px rgba(0,0,0,0.4);
         }
-        /* Header text dark */
         .dark .recently-title { color: #f1f5f9 !important; }
         .dark .recently-count { color: rgba(255,255,255,0.35) !important; }
         .dark .recently-viewall { color: #a78bfa !important; }
-        /* Badge dark */
         .dark .recently-badge {
           background: linear-gradient(135deg,#7c3aed,#4f46e5) !important;
         }
-        /* Buttons dark */
         .dark .recently-btn {
           background: rgba(255,255,255,0.1) !important;
           border: 1px solid rgba(255,255,255,0.12) !important;
         }
-        /* Skeleton dark */
         .dark .recently-skeleton {
           background: rgba(255,255,255,0.06) !important;
           border: 1px solid rgba(255,255,255,0.08) !important;
@@ -208,13 +198,11 @@ function RecentlyAddedSection({ products, loading }: { products: any[]; loading:
         className="recently-section-inner rounded-2xl px-5 pt-5 pb-5 overflow-hidden"
         style={{ position: "relative" }}
       >
-        {/* Noise texture */}
         <div style={{
           position: "absolute", inset: 0, pointerEvents: "none", opacity: 0,
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E")`,
         }} />
 
-        {/* Header */}
         <div className="flex items-center justify-between mb-5" style={{ position: "relative", zIndex: 1 }}>
           <div className="flex items-center gap-2.5">
             <div className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full recently-badge"
@@ -231,12 +219,12 @@ function RecentlyAddedSection({ products, loading }: { products: any[]; loading:
               View all <ArrowRight size={11} />
             </Link>
             <div className="flex gap-1">
-              <button onClick={() => scroll("l")}
+              <button onClick={() => scroll("l")} aria-label="Scroll left"
                 className="w-7 h-7 rounded-full flex items-center justify-center transition-colors recently-btn"
                 style={{ background: "rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.09)" }}>
                 <ChevronLeft size={12} style={{ color: "rgba(0,0,0,0.5)" }} />
               </button>
-              <button onClick={() => scroll("r")}
+              <button onClick={() => scroll("r")} aria-label="Scroll right"
                 className="w-7 h-7 rounded-full flex items-center justify-center transition-colors recently-btn"
                 style={{ background: "rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.09)" }}>
                 <ChevronRight size={12} style={{ color: "rgba(0,0,0,0.5)" }} />
@@ -245,7 +233,6 @@ function RecentlyAddedSection({ products, loading }: { products: any[]; loading:
           </div>
         </div>
 
-        {/* Cards row */}
         <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide"
           style={{ ...NO_SCROLL, position: "relative", zIndex: 1 }}>
           {loading
@@ -265,10 +252,6 @@ function RecentlyAddedSection({ products, loading }: { products: any[]; loading:
   );
 }
 
-
-// ═══════════════════════════════════════════════════════════════
-// SHOP BY CONDITION — Cashify style, mobile only
-// ═══════════════════════════════════════════════════════════════
 const CONDITION_CARDS = [
   { value: "used-superb", label: "Used — Superb", badge: "Best Quality", image: "/condition-superb.png", bg: "#f0fdf4", darkBg: "#0a1f10" },
   { value: "used-good",   label: "Used — Good",   badge: "Good Value",   image: "/condition-good.png",   bg: "#eff6ff", darkBg: "#070f1a" },
@@ -295,7 +278,6 @@ function ConditionSection() {
               boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
               textDecoration: "none", minHeight: 130,
             }}>
-            {/* Left text */}
             <div style={{ flex: 1, padding: "20px 0 20px 20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
               <div>
                 <span style={{
@@ -315,12 +297,13 @@ function ConditionSection() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </div>
             </div>
-            {/* Right: image */}
             <div style={{ width: "48%", flexShrink: 0, position: "relative", overflow: "hidden" }}>
+              {/* SPEED OPTIMIZED: priority removed (as it's below fold usually), added sizes */}
               <Image
                 src={c.image}
                 alt={c.label}
                 fill
+                sizes="(max-width: 768px) 50vw, 33vw"
                 style={{ objectFit: "contain", objectPosition: "center bottom" }}
               />
             </div>
@@ -331,9 +314,6 @@ function ConditionSection() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// TOP BRANDS
-// ═══════════════════════════════════════════════════════════════
 function BrandProductCard({ p, brand }: { p: any; brand: typeof TOP_BRANDS[0] }) {
   const t = useBrandTokens(brand);
   return (
@@ -341,7 +321,6 @@ function BrandProductCard({ p, brand }: { p: any; brand: typeof TOP_BRANDS[0] })
       className="flex flex-col rounded-xl border overflow-hidden hover:scale-[1.02] hover:shadow-md transition-all duration-200 group relative"
       style={{ borderColor: t.border, backgroundColor: t.tagBg }}
     >
-      {/* Sold/Expired Overlay */}
       {p.status && p.status !== 'active' && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 30,
@@ -361,7 +340,9 @@ function BrandProductCard({ p, brand }: { p: any; brand: typeof TOP_BRANDS[0] })
       )}
 
       <div className="w-full h-[110px] flex items-center justify-center overflow-hidden" style={{ backgroundColor: t.tagBg }}>
-        <Image src={p.images?.[0] || "/placeholder.png"} alt={p.title} width={90} height={90}
+        {/* SPEED OPTIMIZED */}
+        <Image src={p.images?.[0] || "/placeholder.png"} alt={p.title || "Brand Product"} width={90} height={90}
+          sizes="(max-width: 768px) 90px, 90px" loading="lazy" decoding="async"
           className="object-contain p-2 group-hover:scale-110 transition-transform duration-300" />
       </div>
       <div className="p-2.5 flex flex-col flex-1" style={{ backgroundColor: t.cardBg }}>
@@ -394,7 +375,7 @@ function BrandPanel({ brand, brandProducts, loading }: { brand: typeof TOP_BRAND
       <div className="px-4 py-3.5 flex items-center justify-between" style={{ background: brand.headerBg }}>
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-black/20 border border-white/25 flex items-center justify-center overflow-hidden flex-shrink-0">
-            <Image src={brand.img} alt={brand.name} width={30} height={30} className="object-contain p-0.5" />
+            <Image src={brand.img} alt={brand.name} width={30} height={30} loading="lazy" className="object-contain p-0.5" />
           </div>
           <div>
             <p className="text-white font-black text-[16px] leading-none">{brand.name}</p>
@@ -460,7 +441,7 @@ function TopBrandsSection({ brandProducts, loading }: { brandProducts: Record<st
             {TOP_BRANDS.map((b, i) => {
               const accent = isDark ? b.dAccent : b.lAccent;
               return (
-                <button key={b.name} onClick={() => scrollTo(i)} className="rounded-full transition-all duration-300"
+                <button key={b.name} onClick={() => scrollTo(i)} aria-label={`Scroll to ${b.name}`} className="rounded-full transition-all duration-300"
                   style={{ width: activeIdx === i ? 18 : 6, height: 6, backgroundColor: activeIdx === i ? accent : (isDark ? "#333" : "#d1d5db") }} />
               );
             })}
@@ -481,7 +462,6 @@ function TopBrandsSection({ brandProducts, loading }: { brandProducts: Record<st
         {TOP_BRANDS.map((brand, i) => {
           const accent = isDark ? brand.dAccent : brand.lAccent;
           const tagBg  = isDark ? brand.dTagBg  : brand.lTagBg;
-          const border = isDark ? brand.dBorder : brand.lBorder;
           return (
             <button key={brand.name} onClick={() => scrollTo(i)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-bold transition-all duration-200"
@@ -499,9 +479,6 @@ function TopBrandsSection({ brandProducts, loading }: { brandProducts: Record<st
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SELL CTA
-// ═══════════════════════════════════════════════════════════════
 function SellCTA() {
   return (
     <section className="max-w-7xl mx-auto px-4">
@@ -534,9 +511,6 @@ function SellCTA() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// NEARBY TOGGLE
-// ═══════════════════════════════════════════════════════════════
 function NearbyToggle() {
   const { isNearbyActive, setIsNearbyActive, selectedCity } = useLocation();
   return (
@@ -559,9 +533,6 @@ function NearbyToggle() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// MAIN PAGE
-// ═══════════════════════════════════════════════════════════════
 export default function HomePage() {
   const [allProducts, setAllProducts]     = useState<any[]>([]);
   const [brandProducts, setBrandProducts] = useState<Record<string, any[]>>({});
@@ -573,7 +544,6 @@ export default function HomePage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      // Fetch data from database
       let q = supabase.from("products").select("*").order("created_at", { ascending: false }).limit(300);
       if (isNearbyActive && selectedCity) q = q.ilike("city", `%${selectedCity}%`);
       const { data } = await q;
@@ -581,14 +551,12 @@ export default function HomePage() {
 
       const nowTime = Date.now();
 
-      // ─── FILTER OUT EXPIRED PRODUCTS FROM HOME FEED ───
       raw = raw.filter((p: any) => {
         if (p.status === 'expired') return false; 
         if (p.expires_at && new Date(p.expires_at).getTime() < nowTime) return false;
         return true; 
       });
 
-      // ── Location-aware scoring ──────────────────────────────
       const userCity = (selectedCity || location || "").toLowerCase().trim();
 
       const scored = raw.map((p: any) => {
@@ -596,22 +564,18 @@ export default function HomePage() {
         const pCity  = (p.city  || "").toLowerCase().trim();
         const pState = (p.state || "").toLowerCase().trim();
 
-        // City match → highest priority
         if (userCity && pCity === userCity)                                    score += 100;
         else if (userCity && (pCity.includes(userCity) || userCity.includes(pCity))) score += 60;
         else if (pState)                                                        score += 20;
 
-        // Freshness bonus
         const ageDays = (nowTime - new Date(p.created_at).getTime()) / 86400000;
         if      (ageDays <= 1)  score += 30;
         else if (ageDays <= 3)  score += 20;
         else if (ageDays <= 7)  score += 10;
         else if (ageDays <= 14) score += 5;
 
-        // Has images
         if (Array.isArray(p.images) && p.images.length > 0) score += 5;
 
-        // Small jitter — feed never looks the same
         score += Math.random() * 8;
 
         return { ...p, _score: score };
@@ -619,7 +583,6 @@ export default function HomePage() {
 
       scored.sort((a: any, b: any) => b._score - a._score);
       const products = scored.map(({ _score, ...p }: any) => p);
-      // ────────────────────────────────────────────────────────────
 
       setAllProducts(products);
       const grouped: Record<string, any[]> = {};
